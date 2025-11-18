@@ -18,3 +18,4 @@ uv run jupyter nbconvert --to HTML --execute notebooks/degen_sim.ipynb --output-
 - [20251028](reports/degen_sim_20251028.md)
 - [20251104](reports/degen_sim_20251104.md)
 - [20251111](reports/degen_sim_20251111.md)
+- [20251118](reports/degen_sim_20251118.md)
