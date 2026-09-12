@@ -23,6 +23,12 @@ uv run jupyter nbconvert --to HTML --execute notebooks/degen_sim.ipynb --output-
 
 Despite `--to HTML`, output files in `reports/` are committed as `.md`. Before running, update the `DATE` variable near the top of `notebooks/degen_sim.ipynb` (cell defining `DATE = "..."`) to the new report date — this both names the output file and is stamped into the report content.
 
+After adding a new weekly report, rebuild the website's data file:
+
+```shell
+uv run python scripts/build_site_data.py
+```
+
 There is no test suite.
 
 ## Architecture
@@ -33,3 +39,5 @@ There is no test suite.
   - `common/notebook_utils.py` — notebook display helpers (`markdown()`, `hide_raw_cells()`).
 - `data/parlay_tracker_nfl.csv` and `data/parlay_tracker_cfb.csv` are the raw input logs, one row per pick, columns: `Week, Pick (picker name), Bet, Odds (American), Win (Y/N/P)`. These are updated by hand each week as game results come in; rows with a blank `Win` (games not yet played) are filtered out before simulation.
 - `reports/` contains one committed markdown report per week (`degen_sim_YYYYMMDD.md`), each linked from `README.md`. The convention (see commit history) is one PR per week titled `Add MM/DD report`, adding both the new CSV rows for that week and the regenerated report.
+- `index.html` + `data.json` (both at repo root) are a static website published via GitHub Pages, showing season standings, rank/p-value trend charts, and weekly snapshots. It's plain vanilla JS (no build step, no framework) that fetches `data.json` client-side and renders tables/canvas charts — mirrors the pattern used in the sibling `top_chef_fantasy` repo.
+- `scripts/build_site_data.py` regenerates `data.json` by parsing every `reports/*.md` file (this is the only source of truth for historical weekly standings — the CSVs alone don't preserve point-in-time snapshots). The very first report (`20251007`) used a `cdf` column instead of `p_value`; the script converts it via `p_value = 1 - cdf` and flags those rows with `"approx": true`.

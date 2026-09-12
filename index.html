@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Degen Sim</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0A1512;
+      --felt: #0F2B22;
+      --felt-light: #15382C;
+      --panel: #10231C;
+      --border: rgba(233,228,216,0.12);
+      --border-strong: rgba(233,228,216,0.22);
+      --cream: #E9E4D8;
+      --muted: rgba(233,228,216,0.55);
+      --faint: rgba(233,228,216,0.32);
+      --gold: #D9A831;
+      --gold-dim: rgba(217,168,49,0.5);
+      --green: #4FAF6D;
+      --red: #E0554A;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--cream);
+      font-family: 'JetBrains Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 15% 0%, rgba(217,168,49,0.05), transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(79,175,109,0.06), transparent 45%);
+    }
+
+    ::selection { background: var(--gold); color: var(--bg); }
+
+    /* HEADER */
+    header {
+      background: var(--felt);
+      padding: 3rem 2rem 2.25rem;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border-strong);
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        repeating-linear-gradient(135deg, transparent, transparent 38px, rgba(217,168,49,0.035) 38px, rgba(217,168,49,0.035) 39px),
+        repeating-linear-gradient(45deg, transparent, transparent 38px, rgba(233,228,216,0.02) 38px, rgba(233,228,216,0.02) 39px);
+      pointer-events: none;
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+    .header-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(3rem, 9vw, 5.5rem);
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--cream);
+      line-height: 0.95;
+    }
+    header h1 em {
+      font-style: normal;
+      color: var(--gold);
+    }
+    .header-sub {
+      margin-top: 0.6rem;
+      max-width: 560px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    .header-meta {
+      margin-top: 1.75rem;
+      display: flex;
+      gap: 2.25rem;
+      flex-wrap: wrap;
+    }
+    .header-meta .stat-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.18em;
+      color: var(--faint);
+      text-transform: uppercase;
+      margin-bottom: 0.2rem;
+    }
+    .header-meta .stat-val {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      color: var(--gold);
+      letter-spacing: 0.02em;
+    }
+
+    /* MAIN LAYOUT */
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem 4rem;
+    }
+
+    .section-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* SPORT TABS */
+    .tabs {
+      display: inline-flex;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 3px;
+      margin-bottom: 1.25rem;
+      gap: 2px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab-btn:hover { color: var(--cream); }
+    .tab-btn.active {
+      background: var(--gold);
+      color: #201503;
+      font-weight: 700;
+    }
+
+    /* PANELS */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      margin-bottom: 3rem;
+      overflow-x: auto;
+    }
+    .panel-header {
+      padding: 1.25rem 1.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .panel-header h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.6rem;
+      letter-spacing: 0.02em;
+      font-weight: 400;
+    }
+    .panel-header .badge {
+      font-size: 0.65rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--green);
+    }
+
+    /* STANDINGS TABLE */
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      font-size: 0.6rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--faint);
+      padding: 0.75rem 1.25rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    thead th.right { text-align: right; }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(233,228,216,0.06);
+      transition: background 0.15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(217,168,49,0.045); }
+    tbody tr.first-place {
+      background: linear-gradient(90deg, rgba(217,168,49,0.1) 0%, transparent 65%);
+    }
+
+    td { padding: 0.9rem 1.25rem; font-size: 0.8rem; vertical-align: middle; }
+    td.rank {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      color: var(--faint);
+      width: 2.5rem;
+      padding-right: 0;
+    }
+    tbody tr.first-place td.rank { color: var(--gold); }
+
+    td.player-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.15rem;
+      letter-spacing: 0.02em;
+    }
+    td.record {
+      font-size: 0.74rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    td.pval {
+      text-align: right;
+      font-size: 0.85rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    td.heat { text-align: right; }
+    .heat-tag {
+      display: inline-block;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 2px;
+      border: 1px solid;
+    }
+    .heat-hot { color: var(--green); border-color: rgba(79,175,109,0.4); background: rgba(79,175,109,0.08); }
+    .heat-mid { color: var(--gold); border-color: rgba(217,168,49,0.4); background: rgba(217,168,49,0.08); }
+    .heat-cold { color: var(--red); border-color: rgba(224,85,74,0.4); background: rgba(224,85,74,0.08); }
+
+    td.meter { min-width: 130px; }
+    .meter-track {
+      position: relative;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(233,228,216,0.08);
+      overflow: visible;
+    }
+    .meter-mid {
+      position: absolute;
+      left: 50%; top: -3px;
+      width: 1px; height: 12px;
+      background: var(--border-strong);
+    }
+    .meter-fill {
+      position: absolute;
+      top: 0; height: 100%;
+      border-radius: 3px;
+      background: var(--gold);
+      transition: width 0.8s cubic-bezier(0.16,1,0.3,1), left 0.8s cubic-bezier(0.16,1,0.3,1);
+    }
+    td.trend { text-align: right; font-size: 0.78rem; white-space: nowrap; }
+    .trend-up { color: var(--green); }
+    .trend-down { color: var(--red); }
+    .trend-same { color: var(--faint); }
+
+    /* CHARTS */
+    .chart-wrap {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      margin-bottom: 3rem;
+      overflow-x: auto;
+    }
+    .chart-inner { min-width: 520px; }
+    canvas { width: 100%; }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    /* WEEKLY CARDS */
+    .week-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.1rem;
+      margin-bottom: 3rem;
+    }
+    .week-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 1.15rem 1.35rem;
+      opacity: 0;
+      transform: translateY(10px);
+      animation: fadeUp 0.4s forwards;
+    }
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+    .week-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.9rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .week-date {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+    }
+    .week-top {
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+    .week-rows { display: flex; flex-direction: column; gap: 0.4rem; }
+    .week-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.74rem;
+    }
+    .week-row-name { color: var(--muted); white-space: nowrap; }
+    .week-row-bar-wrap {
+      flex: 1;
+      margin: 0 0.7rem;
+      height: 3px;
+      background: rgba(233,228,216,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .week-row-bar { height: 100%; border-radius: 2px; background: var(--gold); }
+    .week-row-val { min-width: 3.4rem; text-align: right; font-size: 0.72rem; }
+
+    /* METHODOLOGY */
+    .methodology {
+      background: var(--felt);
+      border: 1px solid var(--border-strong);
+      padding: 1.9rem 2.1rem;
+    }
+    .methodology h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.3rem;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.9rem;
+      color: var(--gold);
+    }
+    .methodology p {
+      font-size: 0.78rem;
+      line-height: 1.75;
+      color: rgba(233,228,216,0.75);
+      margin-bottom: 0.75rem;
+    }
+    .methodology p:last-child { margin-bottom: 0; }
+    .methodology code {
+      background: rgba(233,228,216,0.08);
+      padding: 0.1em 0.4em;
+      border-radius: 2px;
+      color: var(--gold);
+      font-size: 0.72rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.75rem;
+      font-size: 0.62rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--faint);
+      border-top: 1px solid var(--border);
+    }
+
+    .divider {
+      text-align: center;
+      font-size: 1.1rem;
+      color: var(--faint);
+      margin: 0.5rem 0 2rem;
+      letter-spacing: 0.6em;
+    }
+
+    @media (max-width: 640px) {
+      header { padding: 2.25rem 1.25rem 1.75rem; }
+      main { padding: 2rem 1.25rem 3rem; }
+      td, th { padding: 0.7rem 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="header-label">🎲 2025 Season · Monte Carlo Skill Report</div>
+    <h1>Degen <em>Sim</em></h1>
+    <p class="header-sub">
+      Every pick, converted from American odds into an implied win probability, then
+      simulated a million times over to answer one question: is this record skill,
+      or is it just variance?
+    </p>
+    <div class="header-meta">
+      <div>
+        <div class="stat-label">Weeks Tracked</div>
+        <div class="stat-val" id="stat-weeks">—</div>
+      </div>
+      <div>
+        <div class="stat-label">Total Picks</div>
+        <div class="stat-val" id="stat-picks">—</div>
+      </div>
+      <div>
+        <div class="stat-label">Current Leader</div>
+        <div class="stat-val" id="stat-leader">—</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- STANDINGS -->
+  <div class="section-label">Standings</div>
+  <div class="tabs" id="tabs-standings"></div>
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Season Leaderboard</h2>
+      <span class="badge" id="standings-badge">Through —</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Picker</th>
+          <th>Record</th>
+          <th class="right">P-Value</th>
+          <th class="right">Skill Meter</th>
+          <th class="right">Heat</th>
+          <th class="right">Trend</th>
+        </tr>
+      </thead>
+      <tbody id="standings-body"></tbody>
+    </table>
+  </div>
+
+  <!-- RANK OVER TIME -->
+  <div class="section-label">Rank Over Time</div>
+  <div class="chart-wrap">
+    <div class="panel-header" style="padding:0 0 1rem; border:none;">
+      <h2>Weekly Ranking</h2>
+    </div>
+    <div class="chart-inner">
+      <canvas id="rankChart"></canvas>
+    </div>
+    <div class="legend" id="rank-legend"></div>
+  </div>
+
+  <!-- P-VALUE TREND -->
+  <div class="section-label">P-Value Trend</div>
+  <div class="chart-wrap">
+    <div class="panel-header" style="padding:0 0 1rem; border:none;">
+      <h2>Skill vs. Luck Over Time</h2>
+    </div>
+    <p style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;">
+      Dashed line marks p = 0.5 — a coin flip. Below it is hotter than expected, above it is colder than expected.
+    </p>
+    <div class="chart-inner">
+      <canvas id="pvalChart"></canvas>
+    </div>
+    <div class="legend" id="pval-legend"></div>
+  </div>
+
+  <!-- WEEKLY SNAPSHOTS -->
+  <div class="section-label">Weekly Snapshots</div>
+  <div class="divider">♠ ♣ ♥ ♦</div>
+  <div class="week-grid" id="week-grid"></div>
+
+  <!-- METHODOLOGY -->
+  <div class="section-label">Methodology</div>
+  <div class="methodology" id="methodology">
+    <h3>How This Works</h3>
+    <p>For each person, we take their realized record (W-L-P) and the American odds of every pick, and convert those odds into implied win probabilities (assuming no house edge).</p>
+    <p>We then run a Monte Carlo simulation — <code>1,000,000</code> trials per person — to build the distribution of possible win counts (W) given those implied probabilities. From that distribution we compute a p-value: <code>P(W ≥ w)</code>, where <code>w</code> is the person's actual win count.</p>
+    <p>A low p-value means a record this good would be rare by chance alone — a sign of skill. A high p-value means the implied odds predicted a much better record than they actually posted.</p>
+  </div>
+
+</main>
+
+<footer>Degen Sim &nbsp;·&nbsp; 2025 Season &nbsp;·&nbsp; Bet Responsibly</footer>
+
+<script>
+  const COLORS = ['#D9A831','#4FAF6D','#E0554A','#5B8FD9','#B87BC9','#4FBFB0','#D97B4F','#8AA84F','#C95B93','#7A8CD9'];
+  const colorFor = (() => {
+    const map = {};
+    let i = 0;
+    return name => {
+      if (!(name in map)) map[name] = COLORS[i++ % COLORS.length];
+      return map[name];
+    };
+  })();
+
+  const SPORT_LABELS = { combined: 'Combined (NFL + CFB)', nfl: 'NFL', cfb: 'CFB' };
+  let currentSport = 'combined';
+  let DATA = null;
+
+  function heatTag(p) {
+    if (p < 0.3) return { cls: 'heat-hot', label: 'Hot' };
+    if (p > 0.7) return { cls: 'heat-cold', label: 'Cold' };
+    return { cls: 'heat-mid', label: 'Steady' };
+  }
+
+  function trendArrow(diff) {
+    if (diff === null) return '<span class="trend-same">—</span>';
+    if (diff > 0) return `<span class="trend-up">▲ ${diff}</span>`;
+    if (diff < 0) return `<span class="trend-down">▼ ${Math.abs(diff)}</span>`;
+    return '<span class="trend-same">—</span>';
+  }
+
+  function ranksForSport(weeks, sport) {
+    // returns { name: [rank per week] }, ranks 1 = best (lowest p_value)
+    const ranks = {};
+    DATA.pickers.forEach(p => ranks[p] = []);
+    weeks.forEach(week => {
+      const rows = [...(week[sport] || [])].sort((a, b) => a.p_value - b.p_value);
+      const seen = new Set();
+      rows.forEach((r, i) => { ranks[r.name].push(i + 1); seen.add(r.name); });
+      DATA.pickers.forEach(p => { if (!seen.has(p)) ranks[p].push(null); });
+    });
+    return ranks;
+  }
+
+  function renderTabs() {
+    const el = document.getElementById('tabs-standings');
+    el.innerHTML = Object.entries(SPORT_LABELS).map(([key, label]) =>
+      `<button class="tab-btn ${key === currentSport ? 'active' : ''}" data-sport="${key}">${label}</button>`
+    ).join('');
+    el.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentSport = btn.dataset.sport;
+        renderAll();
+      });
+    });
+  }
+
+  function renderStandings() {
+    const weeks = DATA.weeks;
+    const latest = weeks[weeks.length - 1];
+    const prev = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+    const rows = [...(latest[currentSport] || [])].sort((a, b) => a.p_value - b.p_value);
+
+    const prevRankMap = {};
+    if (prev) {
+      [...(prev[currentSport] || [])].sort((a, b) => a.p_value - b.p_value)
+        .forEach((r, i) => { prevRankMap[r.name] = i + 1; });
+    }
+
+    document.getElementById('standings-badge').textContent = `Through ${latest.label}`;
+
+    document.getElementById('standings-body').innerHTML = rows.map((r, i) => {
+      const rank = i + 1;
+      const prevRank = prevRankMap[r.name] ?? null;
+      const diff = prevRank !== null ? prevRank - rank : null;
+      const heat = heatTag(r.p_value);
+      const pct = Math.round(r.p_value * 100);
+      const record = `${r.wins}-${r.losses}${r.pushes ? '-' + r.pushes : ''}`;
+      return `<tr class="${rank === 1 ? 'first-place' : ''}">
+        <td class="rank">${rank}</td>
+        <td class="player-name">${r.name}</td>
+        <td class="record">${record}</td>
+        <td class="pval">${r.p_value.toFixed(3)}</td>
+        <td class="meter">
+          <div class="meter-track">
+            <div class="meter-mid"></div>
+            <div class="meter-fill" style="left:${pct < 50 ? pct : 50}%; width:${Math.abs(pct - 50)}%;"></div>
+          </div>
+        </td>
+        <td class="heat"><span class="heat-tag ${heat.cls}">${heat.label}</span></td>
+        <td class="trend">${trendArrow(diff)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function drawAxes(ctx, PAD, W, H, chartW, chartH) {
+    ctx.strokeStyle = 'rgba(233,228,216,0.1)';
+    ctx.lineWidth = 1;
+  }
+
+  function renderRankChart() {
+    const canvas = document.getElementById('rankChart');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth || 520;
+    const H = 260;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    canvas.style.height = H + 'px';
+    ctx.clearRect(0, 0, W, H);
+
+    const weeks = DATA.weeks;
+    const numPlayers = DATA.pickers.length;
+    const n = weeks.length;
+    if (!n) return;
+
+    const PAD = { top: 16, right: 16, bottom: 30, left: 28 };
+    const chartW = W - PAD.left - PAD.right;
+    const chartH = H - PAD.top - PAD.bottom;
+    const xStep = n > 1 ? chartW / (n - 1) : chartW / 2;
+    const yStep = chartH / (numPlayers - 1 || 1);
+
+    for (let r = 1; r <= numPlayers; r++) {
+      const y = PAD.top + (r - 1) * yStep;
+      ctx.beginPath(); ctx.strokeStyle = 'rgba(233,228,216,0.08)'; ctx.lineWidth = 1;
+      ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + chartW, y); ctx.stroke();
+      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
+      ctx.fillText(r, PAD.left - 6, y + 3);
+    }
+    weeks.forEach((w, i) => {
+      if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
+      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono'; ctx.textAlign = 'center';
+      ctx.fillText(w.label.replace(', 2025', ''), PAD.left + i * xStep, H - 10);
+    });
+
+    const ranks = ranksForSport(weeks, currentSport);
+    DATA.pickers.forEach(name => {
+      const series = ranks[name];
+      const color = colorFor(name);
+      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      let started = false;
+      series.forEach((r, i) => {
+        if (r === null) { started = false; return; }
+        const x = PAD.left + i * xStep, y = PAD.top + (r - 1) * yStep;
+        if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+      });
+      ctx.stroke();
+      series.forEach((r, i) => {
+        if (r === null) return;
+        const x = PAD.left + i * xStep, y = PAD.top + (r - 1) * yStep;
+        ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.strokeStyle = '#0A1512'; ctx.lineWidth = 1.2; ctx.stroke();
+      });
+    });
+
+    document.getElementById('rank-legend').innerHTML = DATA.pickers.map(name => `
+      <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
+    `).join('');
+  }
+
+  function renderPvalChart() {
+    const canvas = document.getElementById('pvalChart');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth || 520;
+    const H = 280;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    canvas.style.height = H + 'px';
+    ctx.clearRect(0, 0, W, H);
+
+    const weeks = DATA.weeks;
+    const n = weeks.length;
+    if (!n) return;
+
+    const PAD = { top: 16, right: 16, bottom: 30, left: 34 };
+    const chartW = W - PAD.left - PAD.right;
+    const chartH = H - PAD.top - PAD.bottom;
+    const xStep = n > 1 ? chartW / (n - 1) : chartW / 2;
+
+    // gridlines 0, 0.25, 0.5, 0.75, 1
+    [0, 0.25, 0.5, 0.75, 1].forEach(v => {
+      const y = PAD.top + chartH - v * chartH;
+      ctx.beginPath();
+      if (v === 0.5) {
+        ctx.strokeStyle = 'rgba(217,168,49,0.5)'; ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+      } else {
+        ctx.strokeStyle = 'rgba(233,228,216,0.08)'; ctx.lineWidth = 1;
+        ctx.setLineDash([]);
+      }
+      ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + chartW, y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = v === 0.5 ? 'rgba(217,168,49,0.8)' : 'rgba(233,228,216,0.3)';
+      ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
+      ctx.fillText(v.toFixed(2), PAD.left - 6, y + 3);
+    });
+    weeks.forEach((w, i) => {
+      if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
+      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono'; ctx.textAlign = 'center';
+      ctx.fillText(w.label.replace(', 2025', ''), PAD.left + i * xStep, H - 10);
+    });
+
+    DATA.pickers.forEach(name => {
+      const color = colorFor(name);
+      const series = weeks.map(w => {
+        const row = (w[currentSport] || []).find(r => r.name === name);
+        return row ? row.p_value : null;
+      });
+      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      let started = false;
+      series.forEach((v, i) => {
+        if (v === null) { started = false; return; }
+        const x = PAD.left + i * xStep, y = PAD.top + chartH - v * chartH;
+        if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+      });
+      ctx.stroke();
+      series.forEach((v, i) => {
+        if (v === null) return;
+        const x = PAD.left + i * xStep, y = PAD.top + chartH - v * chartH;
+        ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = color; ctx.fill();
+        ctx.strokeStyle = '#0A1512'; ctx.lineWidth = 1.2; ctx.stroke();
+      });
+    });
+
+    document.getElementById('pval-legend').innerHTML = DATA.pickers.map(name => `
+      <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
+    `).join('');
+  }
+
+  function renderWeekGrid() {
+    const grid = document.getElementById('week-grid');
+    grid.innerHTML = [...DATA.weeks].reverse().map(week => {
+      const rows = [...(week[currentSport] || [])].sort((a, b) => a.p_value - b.p_value);
+      const top = rows[0];
+      const rowsHtml = rows.map(r => {
+        const pct = Math.round((1 - r.p_value) * 100);
+        return `<div class="week-row">
+          <span class="week-row-name">${r.name}</span>
+          <div class="week-row-bar-wrap"><div class="week-row-bar" style="width:${pct}%;background:${colorFor(r.name)}"></div></div>
+          <span class="week-row-val">${r.p_value.toFixed(3)}</span>
+        </div>`;
+      }).join('');
+      return `<div class="week-card">
+        <div class="week-card-header">
+          <div class="week-date">${week.label}</div>
+          ${top ? `<div class="week-top">🔥 ${top.name}</div>` : ''}
+        </div>
+        <div class="week-rows">${rowsHtml}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderAll() {
+    renderTabs();
+    renderStandings();
+    renderWeekGrid();
+    setTimeout(() => {
+      renderRankChart();
+      renderPvalChart();
+    }, 30);
+  }
+
+  async function init() {
+    try {
+      const res = await fetch('data.json');
+      if (!res.ok) throw new Error('Could not load data.json');
+      DATA = await res.json();
+    } catch (err) {
+      document.querySelector('main').insertAdjacentHTML('afterbegin',
+        `<div style="background:#E0554A;color:#fff;padding:1rem 1.5rem;margin-bottom:2rem;font-size:0.8rem;">
+          ⚠ ${err.message} — make sure data.json is in the same folder as index.html.
+        </div>`);
+      return;
+    }
+
+    const latest = DATA.weeks[DATA.weeks.length - 1];
+    const leaderRow = [...latest.combined].sort((a, b) => a.p_value - b.p_value)[0];
+    const totalPicks = DATA.weeks.length
+      ? DATA.weeks[DATA.weeks.length - 1].combined.reduce((sum, r) => sum + r.wins + r.losses + r.pushes, 0)
+      : 0;
+
+    document.getElementById('stat-weeks').textContent = DATA.weeks.length;
+    document.getElementById('stat-picks').textContent = totalPicks;
+    document.getElementById('stat-leader').textContent = leaderRow ? leaderRow.name : '—';
+
+    renderAll();
+    window.addEventListener('resize', () => {
+      renderRankChart();
+      renderPvalChart();
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>
