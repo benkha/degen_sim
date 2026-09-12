@@ -2,6 +2,8 @@
 
 This repo is for running Monte Carlo simulations to measure accuracy in picking winning bets.
 
+Results are published as a website: https://benkha.github.io/degen_sim/
+
 ## Generate the Report
 
 Run the following command
@@ -9,6 +11,16 @@ Run the following command
 ```shell
 uv run jupyter nbconvert --to HTML --execute notebooks/degen_sim.ipynb --output-dir=reports/ --output="degen_sim_20251007"
 ```
+
+## Update the Website
+
+After generating a new weekly report, rebuild `data.json` (parsed from `reports/*.md`) so the site picks up the new week:
+
+```shell
+uv run python scripts/build_site_data.py
+```
+
+Commit the new report, along with the regenerated `data.json`. The site itself (`index.html`) reads `data.json` directly — no build step needed. It's served via GitHub Pages from the `main` branch root.
 
 ## Reports
 
