@@ -1,7 +1,6 @@
 """Compute standings directly from the pick CSVs and update data.json for the website.
 
-Replaces the old notebook -> reports/*.md -> build_site_data.py pipeline. Run this
-any time after updating data/parlay_tracker_nfl.csv or data/parlay_tracker_cfb.csv:
+Run this any time after updating data/parlay_tracker_nfl.csv or data/parlay_tracker_cfb.csv:
 
     uv run python scripts/generate_data.py
 

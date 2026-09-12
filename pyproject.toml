@@ -15,19 +15,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "ruff>=0.8.2",
-    "ipykernel>=6.29.5",
-    "jupyter>=1.1.1",
-    "nbconvert>=7.16.6",
-    "notebook<7",
-    "jupyter_contrib_nbextensions>=0.7.0",
-    "degen-sim",
 ]
 
 [tool.isort]
 profile = "black"
-
-[tool.uv.sources]
-degen-sim = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -44,7 +35,6 @@ exclude = [
     ".git",
     ".git-rewrite",
     ".hg",
-    ".ipynb_checkpoints",
     ".mypy_cache",
     ".nox",
     ".pants.d",
@@ -64,5 +54,4 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
-    "notebooks"
 ]
