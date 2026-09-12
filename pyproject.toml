@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.1.7",
+    "numpy>=2.1.0",
     "pandas>=2.2.3",
     "plotly>=5.24.1",
     "scipy>=1.14.1",
@@ -27,6 +28,13 @@ profile = "black"
 
 [tool.uv.sources]
 degen-sim = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/degen_sim"]
 
 [tool.ruff]
 exclude = [
