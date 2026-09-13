@@ -926,10 +926,15 @@
     renderTabs();
     renderHeaderStats();
 
+    // Keep the sport tabs visible as long as *any* sport has data for this season,
+    // so a user landed on an empty sport (e.g. NFL before it's started) can still
+    // switch over to one that has picks instead of getting stuck.
+    const seasonHasAnyData = ['combined', 'nfl', 'cfb'].some(sport => getCheckpointsFor(sport).length > 0);
+    document.getElementById('tabs-standings').hidden = !seasonHasAnyData;
+
     const hasData = getCheckpoints().length > 0;
     document.getElementById('empty-state').hidden = hasData;
     document.getElementById('season-content').hidden = !hasData;
-    document.getElementById('tabs-standings').hidden = !hasData;
     if (!hasData) return;
 
     renderStandings();
