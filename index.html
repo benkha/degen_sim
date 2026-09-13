@@ -584,15 +584,22 @@
   let DATA = null;
 
   // ── Season-aware data accessors ─────────────────────────────────────────
-  // In season mode, a "checkpoint" is a week; in all-time mode, it's a season.
-  // Both shapes carry {label, combined, nfl, cfb}, so charts/cards work on either.
+  // NFL, CFB, and Combined each have their own checkpoint timeline (Combined pairs
+  // up matching NFL/CFB weeks server-side, so it isn't just the union of the other
+  // two). In season mode a checkpoint is a week; in all-time mode, a season. Both
+  // shapes carry {label, standings}, so charts/cards work on either.
   function getSeasonKeys() {
     return Object.keys(DATA.seasons).sort((a, b) => b.localeCompare(a)); // newest first
   }
 
+  function getCheckpointsFor(sport) {
+    if (currentSeason === 'all_time') return DATA.all_time.by_season[sport] || [];
+    const season = DATA.seasons[currentSeason];
+    return (season && season.weeks && season.weeks[sport]) || [];
+  }
+
   function getCheckpoints() {
-    if (currentSeason === 'all_time') return DATA.all_time.by_season;
-    return (DATA.seasons[currentSeason] || {}).weeks || [];
+    return getCheckpointsFor(currentSport);
   }
 
   function getPickers() {
@@ -602,15 +609,15 @@
 
   function getStandingsRows(sport) {
     if (currentSeason === 'all_time') return DATA.all_time[sport] || [];
-    const checkpoints = getCheckpoints();
+    const checkpoints = getCheckpointsFor(sport);
     const latest = checkpoints[checkpoints.length - 1];
-    return latest ? (latest[sport] || []) : [];
+    return latest ? latest.standings : [];
   }
 
   function getPrevStandingsRows(sport) {
-    const checkpoints = getCheckpoints();
+    const checkpoints = getCheckpointsFor(sport);
     if (checkpoints.length < 2) return null;
-    return checkpoints[checkpoints.length - 2][sport] || [];
+    return checkpoints[checkpoints.length - 2].standings;
   }
 
   function getBadgeText() {
@@ -636,12 +643,12 @@
     return '<span class="trend-same">—</span>';
   }
 
-  function ranksForSport(checkpoints, sport, pickers) {
+  function ranksForPickers(checkpoints, pickers) {
     // returns { name: [rank per checkpoint] }, ranks 1 = best (lowest p_value)
     const ranks = {};
     pickers.forEach(p => ranks[p] = []);
     checkpoints.forEach(cp => {
-      const rows = [...(cp[sport] || [])].sort((a, b) => a.p_value - b.p_value);
+      const rows = [...cp.standings].sort((a, b) => a.p_value - b.p_value);
       const seen = new Set();
       rows.forEach((r, i) => { ranks[r.name].push(i + 1); seen.add(r.name); });
       pickers.forEach(p => { if (!seen.has(p)) ranks[p].push(null); });
@@ -765,7 +772,7 @@
       ctx.fillText(cp.label.replace(/, \d{4}$/, ''), PAD.left + i * xStep, H - 10);
     });
 
-    const ranks = ranksForSport(checkpoints, currentSport, pickers);
+    const ranks = ranksForPickers(checkpoints, pickers);
     pickers.forEach(name => {
       const series = ranks[name];
       const color = colorFor(name);
@@ -841,7 +848,7 @@
     pickers.forEach(name => {
       const color = colorFor(name);
       const series = checkpoints.map(cp => {
-        const row = (cp[currentSport] || []).find(r => r.name === name);
+        const row = cp.standings.find(r => r.name === name);
         return row ? row.p_value : null;
       });
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
@@ -875,7 +882,7 @@
 
     const grid = document.getElementById('week-grid');
     grid.innerHTML = [...getCheckpoints()].reverse().map(cp => {
-      const rows = [...(cp[currentSport] || [])].sort((a, b) => a.p_value - b.p_value);
+      const rows = [...cp.standings].sort((a, b) => a.p_value - b.p_value);
       const top = rows[0];
       const rowsHtml = rows.map(r => {
         const pct = Math.round((1 - r.p_value) * 100);
@@ -932,7 +939,7 @@
     DATA.all_time.pickers.forEach(name => colorFor(name));
 
     const seasonKeys = getSeasonKeys();
-    currentSeason = seasonKeys.find(s => (DATA.seasons[s].weeks || []).length > 0) || seasonKeys[0] || 'all_time';
+    currentSeason = seasonKeys.find(s => (DATA.seasons[s].weeks.combined || []).length > 0) || seasonKeys[0] || 'all_time';
 
     renderAll();
     window.addEventListener('resize', () => {
