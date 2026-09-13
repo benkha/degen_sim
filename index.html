@@ -299,6 +299,17 @@
     .heat-mid { color: var(--gold); border-color: rgba(217,168,49,0.4); background: rgba(217,168,49,0.08); }
     .heat-cold { color: var(--red); border-color: rgba(224,85,74,0.4); background: rgba(224,85,74,0.08); }
 
+    .heat-legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.9rem;
+      padding: 0.9rem 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
     td.meter { min-width: 130px; }
     .meter-track {
       position: relative;
@@ -394,15 +405,7 @@
       font-size: 0.74rem;
     }
     .week-row-name { color: var(--muted); white-space: nowrap; }
-    .week-row-bar-wrap {
-      flex: 1;
-      margin: 0 0.7rem;
-      height: 3px;
-      background: rgba(233,228,216,0.08);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .week-row-bar { height: 100%; border-radius: 2px; background: var(--gold); }
+    .week-row-bar-wrap { flex: 1; margin: 0 0.7rem; }
     .week-row-val { min-width: 3.4rem; text-align: right; font-size: 0.72rem; }
 
     /* METHODOLOGY */
@@ -518,6 +521,11 @@
         </thead>
         <tbody id="standings-body"></tbody>
       </table>
+      <div class="heat-legend">
+        <span class="heat-tag heat-hot">Hot</span><span>p &lt; 0.3 — better than the odds implied</span>
+        <span class="heat-tag heat-mid">Steady</span><span>0.3 – 0.7 — roughly in line with the odds</span>
+        <span class="heat-tag heat-cold">Cold</span><span>p &gt; 0.7 — worse than the odds implied</span>
+      </div>
     </div>
 
     <!-- RANK OVER TIME -->
@@ -636,6 +644,14 @@
     return { cls: 'heat-mid', label: 'Steady' };
   }
 
+  // Bar centered on p = 0.5: fill grows from the midpoint toward whichever side
+  // the p-value falls on, sized by distance from 0.5. Shared by the standings
+  // skill meter and the weekly/season snapshot bars so both read the same way.
+  function meterFill(p) {
+    const pct = Math.round(p * 100);
+    return { left: pct < 50 ? pct : 50, width: Math.abs(pct - 50) };
+  }
+
   function trendArrow(diff) {
     if (diff === null) return '<span class="trend-same">—</span>';
     if (diff > 0) return `<span class="trend-up">▲ ${diff}</span>`;
@@ -715,7 +731,7 @@
       const prevRank = prevRankMap[r.name] ?? null;
       const diff = prevRank !== null ? prevRank - rank : null;
       const heat = heatTag(r.p_value);
-      const pct = Math.round(r.p_value * 100);
+      const fill = meterFill(r.p_value);
       const record = `${r.wins}-${r.losses}${r.pushes ? '-' + r.pushes : ''}`;
       return `<tr class="${rank === 1 ? 'first-place' : ''}">
         <td class="rank">${rank}</td>
@@ -725,7 +741,7 @@
         <td class="meter">
           <div class="meter-track">
             <div class="meter-mid"></div>
-            <div class="meter-fill" style="left:${pct < 50 ? pct : 50}%; width:${Math.abs(pct - 50)}%;"></div>
+            <div class="meter-fill" style="left:${fill.left}%; width:${fill.width}%;"></div>
           </div>
         </td>
         <td class="heat"><span class="heat-tag ${heat.cls}">${heat.label}</span></td>
@@ -885,10 +901,13 @@
       const rows = [...cp.standings].sort((a, b) => a.p_value - b.p_value);
       const top = rows[0];
       const rowsHtml = rows.map(r => {
-        const pct = Math.round((1 - r.p_value) * 100);
+        const fill = meterFill(r.p_value);
         return `<div class="week-row">
           <span class="week-row-name">${r.name}</span>
-          <div class="week-row-bar-wrap"><div class="week-row-bar" style="width:${pct}%;background:${colorFor(r.name)}"></div></div>
+          <div class="week-row-bar-wrap meter-track">
+            <div class="meter-mid"></div>
+            <div class="meter-fill" style="left:${fill.left}%; width:${fill.width}%; background:${colorFor(r.name)}"></div>
+          </div>
           <span class="week-row-val">${r.p_value.toFixed(3)}</span>
         </div>`;
       }).join('');
