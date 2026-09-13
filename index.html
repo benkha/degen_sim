@@ -299,6 +299,17 @@
     .heat-mid { color: var(--gold); border-color: rgba(217,168,49,0.4); background: rgba(217,168,49,0.08); }
     .heat-cold { color: var(--red); border-color: rgba(224,85,74,0.4); background: rgba(224,85,74,0.08); }
 
+    .heat-legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.9rem;
+      padding: 0.9rem 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+
     td.meter { min-width: 130px; }
     .meter-track {
       position: relative;
@@ -307,18 +318,23 @@
       background: rgba(233,228,216,0.08);
       overflow: visible;
     }
+    /* Two segments always fill the full width (widths sum to 100%): green for
+       1-p ("skill" side), red for p ("luck-losing" side). The dashed 50% tick
+       is a fixed coin-flip reference -- comparing it to the color boundary
+       shows at a glance whether someone's split leans hot or cold. */
+    .meter-fill-good, .meter-fill-bad {
+      position: absolute;
+      top: 0; height: 100%;
+      transition: width 0.8s cubic-bezier(0.16,1,0.3,1), left 0.8s cubic-bezier(0.16,1,0.3,1);
+    }
+    .meter-fill-good { left: 0; border-radius: 3px 0 0 3px; background: var(--green); }
+    .meter-fill-bad { border-radius: 0 3px 3px 0; background: var(--red); }
     .meter-mid {
       position: absolute;
       left: 50%; top: -3px;
       width: 1px; height: 12px;
-      background: var(--border-strong);
-    }
-    .meter-fill {
-      position: absolute;
-      top: 0; height: 100%;
-      border-radius: 3px;
-      background: var(--gold);
-      transition: width 0.8s cubic-bezier(0.16,1,0.3,1), left 0.8s cubic-bezier(0.16,1,0.3,1);
+      background: var(--cream);
+      opacity: 0.7;
     }
     td.trend { text-align: right; font-size: 0.78rem; white-space: nowrap; }
     .trend-up { color: var(--green); }
@@ -348,7 +364,16 @@
       font-size: 0.68rem;
       letter-spacing: 0.04em;
       color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      padding: 0.15rem 0.3rem;
+      margin: -0.15rem -0.3rem;
+      border-radius: 3px;
+      transition: background 0.15s, opacity 0.15s;
     }
+    .legend-item:hover { background: rgba(233,228,216,0.06); color: var(--cream); }
+    .legend-item-hidden { opacity: 0.35; }
+    .legend-item-hidden .legend-dot { background: transparent !important; border: 1.5px solid var(--faint); }
     .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
     /* WEEKLY CARDS */
@@ -393,16 +418,8 @@
       align-items: center;
       font-size: 0.74rem;
     }
-    .week-row-name { color: var(--muted); white-space: nowrap; }
-    .week-row-bar-wrap {
-      flex: 1;
-      margin: 0 0.7rem;
-      height: 3px;
-      background: rgba(233,228,216,0.08);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .week-row-bar { height: 100%; border-radius: 2px; background: var(--gold); }
+    .week-row-name { color: var(--muted); white-space: nowrap; display: inline-flex; align-items: center; gap: 0.4rem; }
+    .week-row-bar-wrap { flex: 1; margin: 0 0.7rem; }
     .week-row-val { min-width: 3.4rem; text-align: right; font-size: 0.72rem; }
 
     /* METHODOLOGY */
@@ -518,6 +535,11 @@
         </thead>
         <tbody id="standings-body"></tbody>
       </table>
+      <div class="heat-legend">
+        <span class="heat-tag heat-hot">Hot</span><span>p &lt; 0.4 — better than the odds implied</span>
+        <span class="heat-tag heat-mid">Steady</span><span>0.4 – 0.6 — roughly in line with the odds</span>
+        <span class="heat-tag heat-cold">Cold</span><span>p &gt; 0.6 — worse than the odds implied</span>
+      </div>
     </div>
 
     <!-- RANK OVER TIME -->
@@ -582,6 +604,26 @@
   let currentSport = 'combined';
   let currentSeason = null; // a season key like "2025", or "all_time"
   let DATA = null;
+  const hiddenPickers = new Set(); // toggled off via clicking a chart legend item
+
+  // Click any legend dot/name to hide that picker's line on both charts (handy
+  // when 10 overlapping lines get too crowded to read); click again to bring it back.
+  function renderLegend(containerId, pickers) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = pickers.map(name => `
+      <div class="legend-item ${hiddenPickers.has(name) ? 'legend-item-hidden' : ''}" data-name="${name}">
+        <div class="legend-dot" style="background:${colorFor(name)}"></div>${name}
+      </div>
+    `).join('');
+    el.querySelectorAll('.legend-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const name = item.dataset.name;
+        hiddenPickers.has(name) ? hiddenPickers.delete(name) : hiddenPickers.add(name);
+        renderRankChart();
+        renderPvalChart();
+      });
+    });
+  }
 
   // ── Season-aware data accessors ─────────────────────────────────────────
   // NFL, CFB, and Combined each have their own checkpoint timeline (Combined pairs
@@ -631,9 +673,17 @@
   }
 
   function heatTag(p) {
-    if (p < 0.3) return { cls: 'heat-hot', label: 'Hot' };
-    if (p > 0.7) return { cls: 'heat-cold', label: 'Cold' };
+    if (p < 0.4) return { cls: 'heat-hot', label: 'Hot' };
+    if (p > 0.6) return { cls: 'heat-cold', label: 'Cold' };
     return { cls: 'heat-mid', label: 'Steady' };
+  }
+
+  // Splits a bar into a green (1-p, "skill") segment and a red (p, "luck-losing")
+  // segment that always sum to 100% width. Shared by the standings skill meter
+  // and the weekly/season snapshot bars so both read the same way.
+  function meterSplit(p) {
+    const good = Math.round((1 - p) * 100);
+    return { good, bad: 100 - good };
   }
 
   function trendArrow(diff) {
@@ -715,7 +765,7 @@
       const prevRank = prevRankMap[r.name] ?? null;
       const diff = prevRank !== null ? prevRank - rank : null;
       const heat = heatTag(r.p_value);
-      const pct = Math.round(r.p_value * 100);
+      const split = meterSplit(r.p_value);
       const record = `${r.wins}-${r.losses}${r.pushes ? '-' + r.pushes : ''}`;
       return `<tr class="${rank === 1 ? 'first-place' : ''}">
         <td class="rank">${rank}</td>
@@ -724,8 +774,9 @@
         <td class="pval">${r.p_value.toFixed(3)}</td>
         <td class="meter">
           <div class="meter-track">
+            <div class="meter-fill-good" style="width:${split.good}%"></div>
+            <div class="meter-fill-bad" style="left:${split.good}%; width:${split.bad}%"></div>
             <div class="meter-mid"></div>
-            <div class="meter-fill" style="left:${pct < 50 ? pct : 50}%; width:${Math.abs(pct - 50)}%;"></div>
           </div>
         </td>
         <td class="heat"><span class="heat-tag ${heat.cls}">${heat.label}</span></td>
@@ -774,6 +825,7 @@
 
     const ranks = ranksForPickers(checkpoints, pickers);
     pickers.forEach(name => {
+      if (hiddenPickers.has(name)) return;
       const series = ranks[name];
       const color = colorFor(name);
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
@@ -794,9 +846,7 @@
       });
     });
 
-    document.getElementById('rank-legend').innerHTML = pickers.map(name => `
-      <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
-    `).join('');
+    renderLegend('rank-legend', pickers);
   }
 
   function renderPvalChart() {
@@ -846,6 +896,7 @@
     });
 
     pickers.forEach(name => {
+      if (hiddenPickers.has(name)) return;
       const color = colorFor(name);
       const series = checkpoints.map(cp => {
         const row = cp.standings.find(r => r.name === name);
@@ -869,9 +920,7 @@
       });
     });
 
-    document.getElementById('pval-legend').innerHTML = pickers.map(name => `
-      <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
-    `).join('');
+    renderLegend('pval-legend', pickers);
   }
 
   function renderSnapshotGrid() {
@@ -885,10 +934,14 @@
       const rows = [...cp.standings].sort((a, b) => a.p_value - b.p_value);
       const top = rows[0];
       const rowsHtml = rows.map(r => {
-        const pct = Math.round((1 - r.p_value) * 100);
+        const split = meterSplit(r.p_value);
         return `<div class="week-row">
-          <span class="week-row-name">${r.name}</span>
-          <div class="week-row-bar-wrap"><div class="week-row-bar" style="width:${pct}%;background:${colorFor(r.name)}"></div></div>
+          <span class="week-row-name"><span class="legend-dot" style="background:${colorFor(r.name)}"></span>${r.name}</span>
+          <div class="week-row-bar-wrap meter-track">
+            <div class="meter-fill-good" style="width:${split.good}%"></div>
+            <div class="meter-fill-bad" style="left:${split.good}%; width:${split.bad}%"></div>
+            <div class="meter-mid"></div>
+          </div>
           <span class="week-row-val">${r.p_value.toFixed(3)}</span>
         </div>`;
       }).join('');
@@ -907,10 +960,15 @@
     renderTabs();
     renderHeaderStats();
 
+    // Keep the sport tabs visible as long as *any* sport has data for this season,
+    // so a user landed on an empty sport (e.g. NFL before it's started) can still
+    // switch over to one that has picks instead of getting stuck.
+    const seasonHasAnyData = ['combined', 'nfl', 'cfb'].some(sport => getCheckpointsFor(sport).length > 0);
+    document.getElementById('tabs-standings').hidden = !seasonHasAnyData;
+
     const hasData = getCheckpoints().length > 0;
     document.getElementById('empty-state').hidden = hasData;
     document.getElementById('season-content').hidden = !hasData;
-    document.getElementById('tabs-standings').hidden = !hasData;
     if (!hasData) return;
 
     renderStandings();
