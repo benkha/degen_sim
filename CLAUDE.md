@@ -15,29 +15,27 @@ uv sync                 # install dependencies
 uv run ruff check .     # lint
 ```
 
-Generate a weekly report by executing the notebook (this is the primary workflow — there is no separate script):
+After updating a season's CSVs (`data/<year>/parlay_tracker_nfl.csv` / `parlay_tracker_cfb.csv`) with a new week's picks, regenerate the site's data in one step:
 
 ```shell
-uv run jupyter nbconvert --to HTML --execute notebooks/degen_sim.ipynb --output-dir=reports/ --output="degen_sim_<YYYYMMDD>"
+uv run python scripts/generate_data.py                                   # today's date, season = its year
+uv run python scripts/generate_data.py --season 2025 --date 2025-12-16   # backfill/recompute a specific season+date
 ```
 
-Despite `--to HTML`, output files in `reports/` are committed as `.md`. Before running, update the `DATE` variable near the top of `notebooks/degen_sim.ipynb` (cell defining `DATE = "..."`) to the new report date — this both names the output file and is stamped into the report content.
-
-After adding a new weekly report, rebuild the website's data file:
-
-```shell
-uv run python scripts/build_site_data.py
-```
+This is idempotent per (season, date) — re-running for the same one recomputes and replaces just that entry in `data.json`; all other checkpoints are untouched. Every run also recomputes the `all_time` rollup from scratch across every `data/<year>/` directory found on disk, regardless of which season was targeted.
 
 There is no test suite.
 
 ## Architecture
 
-- `notebooks/degen_sim.ipynb` is the actual pipeline — all simulation logic lives here, not in `src/`. Data flows: read `data/parlay_tracker_nfl.csv` and `data/parlay_tracker_cfb.csv` -> filter incomplete rows -> build a `PickInfo` per picker (win/loss/push counts + implied probabilities from odds) -> Monte Carlo simulate each picker's win-count distribution -> compute p-values -> write results to `reports/degen_sim_<DATE>.md` for three slices: Combined (NFL+CFB), NFL only, CFB only.
-- `src/degen_sim/` is a thin installable package providing shared helpers imported by the notebook:
-  - `common/constants.py` — `DATA_DIR`/`REPORTS_DIR`/`ROOT_DIR` computed relative to the installed package location, so paths resolve correctly regardless of cwd.
-  - `common/notebook_utils.py` — notebook display helpers (`markdown()`, `hide_raw_cells()`).
-- `data/parlay_tracker_nfl.csv` and `data/parlay_tracker_cfb.csv` are the raw input logs, one row per pick, columns: `Week, Pick (picker name), Bet, Odds (American), Win (Y/N/P)`. These are updated by hand each week as game results come in; rows with a blank `Win` (games not yet played) are filtered out before simulation.
-- `reports/` contains one committed markdown report per week (`degen_sim_YYYYMMDD.md`), each linked from `README.md`. The convention (see commit history) is one PR per week titled `Add MM/DD report`, adding both the new CSV rows for that week and the regenerated report.
-- `index.html` + `data.json` (both at repo root) are a static website published via GitHub Pages, showing season standings, rank/p-value trend charts, and weekly snapshots. It's plain vanilla JS (no build step, no framework) that fetches `data.json` client-side and renders tables/canvas charts — mirrors the pattern used in the sibling `top_chef_fantasy` repo.
-- `scripts/build_site_data.py` regenerates `data.json` by parsing every `reports/*.md` file (this is the only source of truth for historical weekly standings — the CSVs alone don't preserve point-in-time snapshots). The very first report (`20251007`) used a `cdf` column instead of `p_value`; the script converts it via `p_value = 1 - cdf` and flags those rows with `"approx": true`.
+- `src/degen_sim/simulate.py` holds the core simulation logic: `implied_probability` (American odds -> implied win probability), `PickInfo`, `build_pick_infos` (per-picker win/loss/push counts + odds from a picks dataframe), and `compute_standings` (Monte Carlo p-value per picker, 1,000,000 trials by default, vectorized with NumPy).
+- `data/<year>/parlay_tracker_nfl.csv` and `data/<year>/parlay_tracker_cfb.csv` are the raw input logs for that season, one row per pick, columns: `Week, Pick (picker name), Bet, Odds (American), Win (Y/N/P)`. Updated by hand each week as game results come in. Note: **`data/` is gitignored** (`/data/*` in `.gitignore`) — the pick history itself is not committed to this repo; only the derived `data.json` is. Worth confirming with whoever maintains the CSVs that they're backed up some other way.
+- `scripts/generate_data.py` is the only entry point for producing results: discover every `data/<year>/` directory -> for each, drop unresolved (blank `Win`) rows from both CSVs and `compute_standings` for three slices (Combined, NFL, CFB) -> upsert the target season's checkpoint into `data.json["seasons"][year]["weeks"]` -> recompute `data.json["all_time"]` from the concatenation of every season's raw picks (a true cross-season Monte Carlo p-value, not an average of per-season p-values). Every discovered season gets at least an empty `{pickers: [], weeks: []}` entry so the website always has a tab for it, even before any picks are logged.
+- `index.html` + `data.json` (both at repo root) are a static website published via GitHub Pages. Plain vanilla JS (no build step, no framework) that fetches `data.json` client-side and renders tables/canvas charts — mirrors the pattern used in the sibling `top_chef_fantasy` repo. The page has a season tab bar (each season found in `data.json.seasons`, newest first, plus "All-Time") on top of the existing sport tabs (Combined/NFL/CFB). In season mode, charts/snapshot cards are keyed by week (`season.weeks`); in all-time mode, by season (`all_time.by_season`) — both shapes carry `{label, combined, nfl, cfb}` so the same render functions (`getCheckpoints`/`getPickers`/`ranksForSport`, etc.) work for either. The all-time *standings table* specifically uses `all_time.combined/nfl/cfb` (the true merged-season simulation), not just the latest `by_season` entry. `data.json` **is** the season's historical record — there's no other source of point-in-time snapshots, so never regenerate it wholesale; only upsert via `scripts/generate_data.py`. The very first tracked week (`2025-10-07`) was computed from an earlier `cdf` metric before it switched to `p_value`; those rows carry `"approx": true` (converted via `p_value = 1 - cdf`).
+
+## Known methodology limitations (not bugs — don't "fix" without discussion)
+
+The website's Methodology section documents these; they're intentional simplifications, not oversights:
+
+- **Vig is not removed.** `implied_probability` (in `simulate.py`) converts a bet's American odds straight to an implied probability, which still contains the sportsbook's built-in edge (e.g. -110 implies ~52.4%, when a truly fair coin-flip line would be 50%). This means the whole group's p-values trend systematically above 0.5 even at real, zero-edge skill — confirmed empirically across the season's reports (see `data.json`: most weeks have 8-10 of 10 pickers above p=0.5). p-values should be read as relative rankings within a week, not absolute "skill" proof. Properly de-vigging would require the odds on the *other* side of each line, which isn't captured in the CSVs.
+- **Pushes are intentionally included in the simulation, not excluded.** In `build_pick_infos`, `odds`/`num_games` include every pick (win, loss, *and* push), while `num_wins` (the value compared against) only counts wins. This looks like a bug at first glance — pushes appear to add an extra simulated coin flip with no real-world counterpart — but it isn't: `num_wins`/`num_games` implicitly model a binary **Win vs. Not-Win** event per pick (Not-Win = loss or push), and a real push *is* a real "Not-Win" observation, correctly counted as 0 toward `num_wins`. Dropping push picks from the simulation instead (as an "obvious fix") would actually be worse — it discards a real, informative outcome. The one legitimate residual nuance: `implied_probability` technically estimates P(Win | bet decided), not unconditional P(Win), so it's a mild over-estimate specifically for push-eligible bets (e.g. spreads/totals on common margins like 3 or 7) — a narrow, minor effect, unlike the vig issue above which touches every single pick.
