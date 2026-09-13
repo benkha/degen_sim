@@ -8,6 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
 
     :root {
       --bg: #0A1512;
@@ -163,6 +164,46 @@
       color: #201503;
       font-weight: 700;
     }
+
+    /* SEASON TABS */
+    .season-tabs {
+      display: inline-flex;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      padding: 4px;
+      gap: 3px;
+      flex-wrap: wrap;
+    }
+    .season-tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      padding: 0.45rem 1.1rem;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .season-tab-btn:hover { color: var(--cream); }
+    .season-tab-btn.active {
+      background: var(--gold);
+      color: #201503;
+    }
+
+    /* EMPTY STATE */
+    .empty-state {
+      background: var(--panel);
+      border: 1px dashed var(--border-strong);
+      padding: 3rem 2rem;
+      text-align: center;
+      margin-bottom: 3rem;
+      color: var(--muted);
+    }
+    .empty-state-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+    .empty-state p { font-size: 0.85rem; }
 
     /* PANELS */
     .panel {
@@ -428,9 +469,10 @@
       simulated a million times over to answer one question: is this record skill,
       or is it just variance?
     </p>
+    <div class="season-tabs" id="season-tabs" style="margin-top:1.5rem;"></div>
     <div class="header-meta">
       <div>
-        <div class="stat-label">Weeks Tracked</div>
+        <div class="stat-label" id="stat-weeks-label">Weeks Tracked</div>
         <div class="stat-val" id="stat-weeks">—</div>
       </div>
       <div>
@@ -450,58 +492,66 @@
   <!-- STANDINGS -->
   <div class="section-label">Standings</div>
   <div class="tabs" id="tabs-standings"></div>
-  <div class="panel">
-    <div class="panel-header">
-      <h2>Season Leaderboard</h2>
-      <span class="badge" id="standings-badge">Through —</span>
-    </div>
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Picker</th>
-          <th>Record</th>
-          <th class="right">P-Value</th>
-          <th class="right">Skill Meter</th>
-          <th class="right">Heat</th>
-          <th class="right">Trend</th>
-        </tr>
-      </thead>
-      <tbody id="standings-body"></tbody>
-    </table>
+
+  <div class="empty-state" id="empty-state" hidden>
+    <div class="empty-state-icon">🏈</div>
+    <p>No picks logged yet for this season — check back once games kick off.</p>
   </div>
 
-  <!-- RANK OVER TIME -->
-  <div class="section-label">Rank Over Time</div>
-  <div class="chart-wrap">
-    <div class="panel-header" style="padding:0 0 1rem; border:none;">
-      <h2>Weekly Ranking</h2>
+  <div id="season-content">
+    <div class="panel">
+      <div class="panel-header">
+        <h2 id="standings-title">Season Leaderboard</h2>
+        <span class="badge" id="standings-badge">Through —</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Picker</th>
+            <th>Record</th>
+            <th class="right">P-Value</th>
+            <th class="right">Skill Meter</th>
+            <th class="right">Heat</th>
+            <th class="right">Trend</th>
+          </tr>
+        </thead>
+        <tbody id="standings-body"></tbody>
+      </table>
     </div>
-    <div class="chart-inner">
-      <canvas id="rankChart"></canvas>
-    </div>
-    <div class="legend" id="rank-legend"></div>
-  </div>
 
-  <!-- P-VALUE TREND -->
-  <div class="section-label">P-Value Trend</div>
-  <div class="chart-wrap">
-    <div class="panel-header" style="padding:0 0 1rem; border:none;">
-      <h2>Skill vs. Luck Over Time</h2>
+    <!-- RANK OVER TIME -->
+    <div class="section-label" id="rank-section-label">Rank Over Time</div>
+    <div class="chart-wrap">
+      <div class="panel-header" style="padding:0 0 1rem; border:none;">
+        <h2 id="rank-chart-title">Weekly Ranking</h2>
+      </div>
+      <div class="chart-inner">
+        <canvas id="rankChart"></canvas>
+      </div>
+      <div class="legend" id="rank-legend"></div>
     </div>
-    <p style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;">
-      Dashed line marks p = 0.5 — a coin flip. Below it is hotter than expected, above it is colder than expected.
-    </p>
-    <div class="chart-inner">
-      <canvas id="pvalChart"></canvas>
-    </div>
-    <div class="legend" id="pval-legend"></div>
-  </div>
 
-  <!-- WEEKLY SNAPSHOTS -->
-  <div class="section-label">Weekly Snapshots</div>
-  <div class="divider">♠ ♣ ♥ ♦</div>
-  <div class="week-grid" id="week-grid"></div>
+    <!-- P-VALUE TREND -->
+    <div class="section-label" id="pval-section-label">P-Value Trend</div>
+    <div class="chart-wrap">
+      <div class="panel-header" style="padding:0 0 1rem; border:none;">
+        <h2 id="pval-chart-title">Skill vs. Luck Over Time</h2>
+      </div>
+      <p style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;">
+        Dashed line marks p = 0.5 — a coin flip. Below it is hotter than expected, above it is colder than expected.
+      </p>
+      <div class="chart-inner">
+        <canvas id="pvalChart"></canvas>
+      </div>
+      <div class="legend" id="pval-legend"></div>
+    </div>
+
+    <!-- SNAPSHOTS -->
+    <div class="section-label" id="snapshots-section-label">Weekly Snapshots</div>
+    <div class="divider">♠ ♣ ♥ ♦</div>
+    <div class="week-grid" id="week-grid"></div>
+  </div>
 
   <!-- METHODOLOGY -->
   <div class="section-label">Methodology</div>
@@ -515,7 +565,7 @@
 
 </main>
 
-<footer>Degen Sim &nbsp;·&nbsp; 2025 Season &nbsp;·&nbsp; Bet Responsibly</footer>
+<footer>Degen Sim &nbsp;·&nbsp; Bet Responsibly</footer>
 
 <script>
   const COLORS = ['#D9A831','#4FAF6D','#E0554A','#5B8FD9','#B87BC9','#4FBFB0','#D97B4F','#8AA84F','#C95B93','#7A8CD9'];
@@ -530,7 +580,48 @@
 
   const SPORT_LABELS = { combined: 'Combined (NFL + CFB)', nfl: 'NFL', cfb: 'CFB' };
   let currentSport = 'combined';
+  let currentSeason = null; // a season key like "2025", or "all_time"
   let DATA = null;
+
+  // ── Season-aware data accessors ─────────────────────────────────────────
+  // In season mode, a "checkpoint" is a week; in all-time mode, it's a season.
+  // Both shapes carry {label, combined, nfl, cfb}, so charts/cards work on either.
+  function getSeasonKeys() {
+    return Object.keys(DATA.seasons).sort((a, b) => b.localeCompare(a)); // newest first
+  }
+
+  function getCheckpoints() {
+    if (currentSeason === 'all_time') return DATA.all_time.by_season;
+    return (DATA.seasons[currentSeason] || {}).weeks || [];
+  }
+
+  function getPickers() {
+    if (currentSeason === 'all_time') return DATA.all_time.pickers;
+    return (DATA.seasons[currentSeason] || {}).pickers || [];
+  }
+
+  function getStandingsRows(sport) {
+    if (currentSeason === 'all_time') return DATA.all_time[sport] || [];
+    const checkpoints = getCheckpoints();
+    const latest = checkpoints[checkpoints.length - 1];
+    return latest ? (latest[sport] || []) : [];
+  }
+
+  function getPrevStandingsRows(sport) {
+    const checkpoints = getCheckpoints();
+    if (checkpoints.length < 2) return null;
+    return checkpoints[checkpoints.length - 2][sport] || [];
+  }
+
+  function getBadgeText() {
+    const checkpoints = getCheckpoints();
+    if (currentSeason === 'all_time') {
+      const n = checkpoints.length;
+      return `Across ${n} season${n === 1 ? '' : 's'}`;
+    }
+    const latest = checkpoints[checkpoints.length - 1];
+    return latest ? `Through ${latest.label}` : 'No data yet';
+  }
 
   function heatTag(p) {
     if (p < 0.3) return { cls: 'heat-hot', label: 'Hot' };
@@ -545,17 +636,31 @@
     return '<span class="trend-same">—</span>';
   }
 
-  function ranksForSport(weeks, sport) {
-    // returns { name: [rank per week] }, ranks 1 = best (lowest p_value)
+  function ranksForSport(checkpoints, sport, pickers) {
+    // returns { name: [rank per checkpoint] }, ranks 1 = best (lowest p_value)
     const ranks = {};
-    DATA.pickers.forEach(p => ranks[p] = []);
-    weeks.forEach(week => {
-      const rows = [...(week[sport] || [])].sort((a, b) => a.p_value - b.p_value);
+    pickers.forEach(p => ranks[p] = []);
+    checkpoints.forEach(cp => {
+      const rows = [...(cp[sport] || [])].sort((a, b) => a.p_value - b.p_value);
       const seen = new Set();
       rows.forEach((r, i) => { ranks[r.name].push(i + 1); seen.add(r.name); });
-      DATA.pickers.forEach(p => { if (!seen.has(p)) ranks[p].push(null); });
+      pickers.forEach(p => { if (!seen.has(p)) ranks[p].push(null); });
     });
     return ranks;
+  }
+
+  function renderSeasonTabs() {
+    const el = document.getElementById('season-tabs');
+    const items = [...getSeasonKeys().map(s => ({ key: s, label: `${s} Season` })), { key: 'all_time', label: 'All-Time' }];
+    el.innerHTML = items.map(({ key, label }) =>
+      `<button class="season-tab-btn ${key === currentSeason ? 'active' : ''}" data-season="${key}">${label}</button>`
+    ).join('');
+    el.querySelectorAll('.season-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentSeason = btn.dataset.season;
+        renderAll();
+      });
+    });
   }
 
   function renderTabs() {
@@ -571,19 +676,32 @@
     });
   }
 
+  function renderHeaderStats() {
+    const isAllTime = currentSeason === 'all_time';
+    document.getElementById('stat-weeks-label').textContent = isAllTime ? 'Seasons Tracked' : 'Weeks Tracked';
+    document.getElementById('stat-weeks').textContent = getCheckpoints().length;
+
+    const combinedRows = getStandingsRows('combined');
+    const totalPicks = combinedRows.reduce((sum, r) => sum + r.wins + r.losses + r.pushes, 0);
+    document.getElementById('stat-picks').textContent = totalPicks;
+
+    const leader = [...combinedRows].sort((a, b) => a.p_value - b.p_value)[0];
+    document.getElementById('stat-leader').textContent = leader ? leader.name : '—';
+  }
+
   function renderStandings() {
-    const weeks = DATA.weeks;
-    const latest = weeks[weeks.length - 1];
-    const prev = weeks.length > 1 ? weeks[weeks.length - 2] : null;
-    const rows = [...(latest[currentSport] || [])].sort((a, b) => a.p_value - b.p_value);
+    const rows = [...getStandingsRows(currentSport)].sort((a, b) => a.p_value - b.p_value);
+    const prevRowsRaw = getPrevStandingsRows(currentSport);
 
     const prevRankMap = {};
-    if (prev) {
-      [...(prev[currentSport] || [])].sort((a, b) => a.p_value - b.p_value)
+    if (prevRowsRaw) {
+      [...prevRowsRaw].sort((a, b) => a.p_value - b.p_value)
         .forEach((r, i) => { prevRankMap[r.name] = i + 1; });
     }
 
-    document.getElementById('standings-badge').textContent = `Through ${latest.label}`;
+    document.getElementById('standings-title').textContent =
+      currentSeason === 'all_time' ? 'All-Time Leaderboard' : `${currentSeason} Season Leaderboard`;
+    document.getElementById('standings-badge').textContent = getBadgeText();
 
     document.getElementById('standings-body').innerHTML = rows.map((r, i) => {
       const rank = i + 1;
@@ -609,11 +727,6 @@
     }).join('');
   }
 
-  function drawAxes(ctx, PAD, W, H, chartW, chartH) {
-    ctx.strokeStyle = 'rgba(233,228,216,0.1)';
-    ctx.lineWidth = 1;
-  }
-
   function renderRankChart() {
     const canvas = document.getElementById('rankChart');
     const ctx = canvas.getContext('2d');
@@ -627,9 +740,10 @@
     canvas.style.height = H + 'px';
     ctx.clearRect(0, 0, W, H);
 
-    const weeks = DATA.weeks;
-    const numPlayers = DATA.pickers.length;
-    const n = weeks.length;
+    const checkpoints = getCheckpoints();
+    const pickers = getPickers();
+    const numPlayers = pickers.length;
+    const n = checkpoints.length;
     if (!n) return;
 
     const PAD = { top: 16, right: 16, bottom: 30, left: 28 };
@@ -645,14 +759,14 @@
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
       ctx.fillText(r, PAD.left - 6, y + 3);
     }
-    weeks.forEach((w, i) => {
+    checkpoints.forEach((cp, i) => {
       if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono'; ctx.textAlign = 'center';
-      ctx.fillText(w.label.replace(', 2025', ''), PAD.left + i * xStep, H - 10);
+      ctx.fillText(cp.label.replace(/, \d{4}$/, ''), PAD.left + i * xStep, H - 10);
     });
 
-    const ranks = ranksForSport(weeks, currentSport);
-    DATA.pickers.forEach(name => {
+    const ranks = ranksForSport(checkpoints, currentSport, pickers);
+    pickers.forEach(name => {
       const series = ranks[name];
       const color = colorFor(name);
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
@@ -673,7 +787,7 @@
       });
     });
 
-    document.getElementById('rank-legend').innerHTML = DATA.pickers.map(name => `
+    document.getElementById('rank-legend').innerHTML = pickers.map(name => `
       <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
     `).join('');
   }
@@ -691,8 +805,9 @@
     canvas.style.height = H + 'px';
     ctx.clearRect(0, 0, W, H);
 
-    const weeks = DATA.weeks;
-    const n = weeks.length;
+    const checkpoints = getCheckpoints();
+    const pickers = getPickers();
+    const n = checkpoints.length;
     if (!n) return;
 
     const PAD = { top: 16, right: 16, bottom: 30, left: 34 };
@@ -717,16 +832,16 @@
       ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
       ctx.fillText(v.toFixed(2), PAD.left - 6, y + 3);
     });
-    weeks.forEach((w, i) => {
+    checkpoints.forEach((cp, i) => {
       if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono'; ctx.textAlign = 'center';
-      ctx.fillText(w.label.replace(', 2025', ''), PAD.left + i * xStep, H - 10);
+      ctx.fillText(cp.label.replace(/, \d{4}$/, ''), PAD.left + i * xStep, H - 10);
     });
 
-    DATA.pickers.forEach(name => {
+    pickers.forEach(name => {
       const color = colorFor(name);
-      const series = weeks.map(w => {
-        const row = (w[currentSport] || []).find(r => r.name === name);
+      const series = checkpoints.map(cp => {
+        const row = (cp[currentSport] || []).find(r => r.name === name);
         return row ? row.p_value : null;
       });
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
@@ -747,15 +862,20 @@
       });
     });
 
-    document.getElementById('pval-legend').innerHTML = DATA.pickers.map(name => `
+    document.getElementById('pval-legend').innerHTML = pickers.map(name => `
       <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
     `).join('');
   }
 
-  function renderWeekGrid() {
+  function renderSnapshotGrid() {
+    const isAllTime = currentSeason === 'all_time';
+    document.getElementById('rank-chart-title').textContent = isAllTime ? 'Ranking By Season' : 'Weekly Ranking';
+    document.getElementById('pval-chart-title').textContent = isAllTime ? 'Skill vs. Luck By Season' : 'Skill vs. Luck Over Time';
+    document.getElementById('snapshots-section-label').textContent = isAllTime ? 'Season Snapshots' : 'Weekly Snapshots';
+
     const grid = document.getElementById('week-grid');
-    grid.innerHTML = [...DATA.weeks].reverse().map(week => {
-      const rows = [...(week[currentSport] || [])].sort((a, b) => a.p_value - b.p_value);
+    grid.innerHTML = [...getCheckpoints()].reverse().map(cp => {
+      const rows = [...(cp[currentSport] || [])].sort((a, b) => a.p_value - b.p_value);
       const top = rows[0];
       const rowsHtml = rows.map(r => {
         const pct = Math.round((1 - r.p_value) * 100);
@@ -767,7 +887,7 @@
       }).join('');
       return `<div class="week-card">
         <div class="week-card-header">
-          <div class="week-date">${week.label}</div>
+          <div class="week-date">${cp.label}</div>
           ${top ? `<div class="week-top">🔥 ${top.name}</div>` : ''}
         </div>
         <div class="week-rows">${rowsHtml}</div>
@@ -776,9 +896,18 @@
   }
 
   function renderAll() {
+    renderSeasonTabs();
     renderTabs();
+    renderHeaderStats();
+
+    const hasData = getCheckpoints().length > 0;
+    document.getElementById('empty-state').hidden = hasData;
+    document.getElementById('season-content').hidden = !hasData;
+    document.getElementById('tabs-standings').hidden = !hasData;
+    if (!hasData) return;
+
     renderStandings();
-    renderWeekGrid();
+    renderSnapshotGrid();
     setTimeout(() => {
       renderRankChart();
       renderPvalChart();
@@ -798,20 +927,19 @@
       return;
     }
 
-    const latest = DATA.weeks[DATA.weeks.length - 1];
-    const leaderRow = [...latest.combined].sort((a, b) => a.p_value - b.p_value)[0];
-    const totalPicks = DATA.weeks.length
-      ? DATA.weeks[DATA.weeks.length - 1].combined.reduce((sum, r) => sum + r.wins + r.losses + r.pushes, 0)
-      : 0;
+    // Seed colors from the full all-time roster so a picker's color stays the
+    // same across every season view, not just whichever loads first.
+    DATA.all_time.pickers.forEach(name => colorFor(name));
 
-    document.getElementById('stat-weeks').textContent = DATA.weeks.length;
-    document.getElementById('stat-picks').textContent = totalPicks;
-    document.getElementById('stat-leader').textContent = leaderRow ? leaderRow.name : '—';
+    const seasonKeys = getSeasonKeys();
+    currentSeason = seasonKeys.find(s => (DATA.seasons[s].weeks || []).length > 0) || seasonKeys[0] || 'all_time';
 
     renderAll();
     window.addEventListener('resize', () => {
-      renderRankChart();
-      renderPvalChart();
+      if (getCheckpoints().length) {
+        renderRankChart();
+        renderPvalChart();
+      }
     });
   }
 
