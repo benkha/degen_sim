@@ -2737,8 +2737,169 @@
       ]
     },
     "2026": {
-      "pickers": [],
-      "weeks": []
+      "pickers": [
+        "Arun",
+        "Ben",
+        "Caleb",
+        "Cristian",
+        "Daniel",
+        "David",
+        "Kunal",
+        "Kyle",
+        "Michael",
+        "Ryan"
+      ],
+      "weeks": [
+        {
+          "date": "2026-09-12",
+          "label": "Sep 12, 2026",
+          "combined": [
+            {
+              "name": "Arun",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "Daniel",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "David",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "Michael",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "Caleb",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.528403
+            },
+            {
+              "name": "Cristian",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.607547
+            },
+            {
+              "name": "Ben",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            },
+            {
+              "name": "Kunal",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            },
+            {
+              "name": "Kyle",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            },
+            {
+              "name": "Ryan",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            }
+          ],
+          "nfl": [],
+          "cfb": [
+            {
+              "name": "Arun",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "Daniel",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "David",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "Michael",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.512556
+            },
+            {
+              "name": "Caleb",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.528403
+            },
+            {
+              "name": "Cristian",
+              "wins": 1,
+              "losses": 0,
+              "pushes": 0,
+              "p_value": 0.607547
+            },
+            {
+              "name": "Ben",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            },
+            {
+              "name": "Kunal",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            },
+            {
+              "name": "Kyle",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            },
+            {
+              "name": "Ryan",
+              "wins": 0,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 1.0
+            }
+          ]
+        }
+      ]
     }
   },
   "all_time": {
@@ -2749,6 +2910,7 @@
       "Caleb",
       "Cristian",
       "Daniel",
+      "David",
       "Kunal",
       "Kyle",
       "Michael",
@@ -2763,11 +2925,11 @@
         "p_value": 0.471247
       },
       {
-        "name": "Kyle",
-        "wins": 15,
-        "losses": 11,
-        "pushes": 1,
-        "p_value": 0.507201
+        "name": "David",
+        "wins": 1,
+        "losses": 0,
+        "pushes": 0,
+        "p_value": 0.512556
       },
       {
         "name": "Daniel",
@@ -2777,53 +2939,60 @@
         "p_value": 0.519163
       },
       {
+        "name": "Ananya",
+        "wins": 15,
+        "losses": 9,
+        "pushes": 1,
+        "p_value": 0.543108
+      },
+      {
         "name": "Ryan",
         "wins": 13,
         "losses": 11,
         "pushes": 0,
-        "p_value": 0.574204
+        "p_value": 0.565048
       },
       {
-        "name": "Ananya",
-        "wins": 15,
-        "losses": 10,
+        "name": "Kyle",
+        "wins": 14,
+        "losses": 12,
         "pushes": 1,
-        "p_value": 0.625836
+        "p_value": 0.660502
       },
       {
         "name": "Michael",
         "wins": 14,
         "losses": 13,
         "pushes": 0,
-        "p_value": 0.708287
+        "p_value": 0.715902
       },
       {
         "name": "Ben",
         "wins": 14,
         "losses": 14,
         "pushes": 0,
-        "p_value": 0.762476
+        "p_value": 0.764354
       },
       {
         "name": "Kunal",
         "wins": 12,
         "losses": 15,
         "pushes": 0,
-        "p_value": 0.901191
+        "p_value": 0.901528
       },
       {
         "name": "Caleb",
-        "wins": 10,
-        "losses": 15,
+        "wins": 11,
+        "losses": 14,
         "pushes": 0,
-        "p_value": 0.960429
+        "p_value": 0.910047
       },
       {
         "name": "Cristian",
         "wins": 12,
         "losses": 14,
         "pushes": 0,
-        "p_value": 0.96404
+        "p_value": 0.959394
       }
     ],
     "nfl": [
@@ -2900,18 +3069,25 @@
     ],
     "cfb": [
       {
-        "name": "Kyle",
-        "wins": 9,
-        "losses": 4,
-        "pushes": 0,
-        "p_value": 0.174744
-      },
-      {
         "name": "Michael",
         "wins": 8,
         "losses": 5,
         "pushes": 0,
-        "p_value": 0.336359
+        "p_value": 0.348653
+      },
+      {
+        "name": "Kyle",
+        "wins": 8,
+        "losses": 5,
+        "pushes": 0,
+        "p_value": 0.357572
+      },
+      {
+        "name": "David",
+        "wins": 1,
+        "losses": 0,
+        "pushes": 0,
+        "p_value": 0.512556
       },
       {
         "name": "Daniel",
@@ -2919,6 +3095,13 @@
         "losses": 5,
         "pushes": 0,
         "p_value": 0.552299
+      },
+      {
+        "name": "Caleb",
+        "wins": 6,
+        "losses": 5,
+        "pushes": 0,
+        "p_value": 0.585423
       },
       {
         "name": "Arun",
@@ -2932,42 +3115,35 @@
         "wins": 5,
         "losses": 6,
         "pushes": 0,
-        "p_value": 0.783064
-      },
-      {
-        "name": "Caleb",
-        "wins": 5,
-        "losses": 6,
-        "pushes": 0,
-        "p_value": 0.795421
+        "p_value": 0.772676
       },
       {
         "name": "Cristian",
         "wins": 6,
         "losses": 6,
         "pushes": 0,
-        "p_value": 0.885258
+        "p_value": 0.868258
+      },
+      {
+        "name": "Ananya",
+        "wins": 5,
+        "losses": 5,
+        "pushes": 1,
+        "p_value": 0.921176
       },
       {
         "name": "Kunal",
         "wins": 5,
         "losses": 8,
         "pushes": 0,
-        "p_value": 0.922685
-      },
-      {
-        "name": "Ananya",
-        "wins": 5,
-        "losses": 6,
-        "pushes": 1,
-        "p_value": 0.952113
+        "p_value": 0.923062
       },
       {
         "name": "Ben",
         "wins": 4,
         "losses": 10,
         "pushes": 0,
-        "p_value": 0.989402
+        "p_value": 0.989613
       }
     ],
     "by_season": [
@@ -3196,20 +3372,6 @@
         "label": "2026",
         "combined": [
           {
-            "name": "Michael",
-            "wins": 1,
-            "losses": 0,
-            "pushes": 0,
-            "p_value": 0.454585
-          },
-          {
-            "name": "Kyle",
-            "wins": 1,
-            "losses": 0,
-            "pushes": 0,
-            "p_value": 0.505192
-          },
-          {
             "name": "Arun",
             "wins": 1,
             "losses": 0,
@@ -3224,18 +3386,32 @@
             "p_value": 0.512556
           },
           {
+            "name": "David",
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "p_value": 0.512556
+          },
+          {
+            "name": "Michael",
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "p_value": 0.512556
+          },
+          {
+            "name": "Caleb",
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "p_value": 0.528403
+          },
+          {
             "name": "Cristian",
             "wins": 1,
             "losses": 0,
             "pushes": 0,
-            "p_value": 0.735079
-          },
-          {
-            "name": "Ananya",
-            "wins": 0,
-            "losses": 1,
-            "pushes": 0,
-            "p_value": 1.0
+            "p_value": 0.607547
           },
           {
             "name": "Ben",
@@ -3245,14 +3421,14 @@
             "p_value": 1.0
           },
           {
-            "name": "Caleb",
+            "name": "Kunal",
             "wins": 0,
             "losses": 1,
             "pushes": 0,
             "p_value": 1.0
           },
           {
-            "name": "Kunal",
+            "name": "Kyle",
             "wins": 0,
             "losses": 1,
             "pushes": 0,
@@ -3269,20 +3445,6 @@
         "nfl": [],
         "cfb": [
           {
-            "name": "Michael",
-            "wins": 1,
-            "losses": 0,
-            "pushes": 0,
-            "p_value": 0.454585
-          },
-          {
-            "name": "Kyle",
-            "wins": 1,
-            "losses": 0,
-            "pushes": 0,
-            "p_value": 0.505192
-          },
-          {
             "name": "Arun",
             "wins": 1,
             "losses": 0,
@@ -3297,18 +3459,32 @@
             "p_value": 0.512556
           },
           {
+            "name": "David",
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "p_value": 0.512556
+          },
+          {
+            "name": "Michael",
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "p_value": 0.512556
+          },
+          {
+            "name": "Caleb",
+            "wins": 1,
+            "losses": 0,
+            "pushes": 0,
+            "p_value": 0.528403
+          },
+          {
             "name": "Cristian",
             "wins": 1,
             "losses": 0,
             "pushes": 0,
-            "p_value": 0.735079
-          },
-          {
-            "name": "Ananya",
-            "wins": 0,
-            "losses": 1,
-            "pushes": 0,
-            "p_value": 1.0
+            "p_value": 0.607547
           },
           {
             "name": "Ben",
@@ -3318,14 +3494,14 @@
             "p_value": 1.0
           },
           {
-            "name": "Caleb",
+            "name": "Kunal",
             "wins": 0,
             "losses": 1,
             "pushes": 0,
             "p_value": 1.0
           },
           {
-            "name": "Kunal",
+            "name": "Kyle",
             "wins": 0,
             "losses": 1,
             "pushes": 0,
@@ -3342,5 +3518,5 @@
       }
     ]
   },
-  "generated_at": "2026-09-13T00:00:09Z"
+  "generated_at": "2026-09-13T00:05:04Z"
 }
