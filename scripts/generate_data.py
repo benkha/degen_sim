@@ -161,6 +161,38 @@ def discover_seasons() -> list[str]:
     return sorted(p.name for p in Path(DATA_DIR).iterdir() if p.is_dir())
 
 
+def all_time_weekly(computed: dict, trials: int, seed: int) -> dict:
+    """All-time weekly checkpoints, one per sport.
+
+    Reuses each season's own checkpoint dates (so Combined still pairs NFL/CFB
+    weeks correctly within a season), but standings at each date are computed
+    from *every* season's picks up to that date, not just the current season's --
+    so e.g. 2026 Week 1's checkpoint already includes all of 2025's picks as part
+    of the distribution, not a fresh restart.
+    """
+    weeks = {}
+    for sport, pick_key in (("combined", None), ("nfl", "nfl_picks"), ("cfb", "cfb_picks")):
+        if sport == "combined":
+            frames = [pd.concat([c["nfl_picks"], c["cfb_picks"]], ignore_index=True) for c in computed.values()]
+        else:
+            frames = [c[pick_key] for c in computed.values()]
+        sport_picks = pd.concat(frames, ignore_index=True) if frames else EMPTY_PICKS
+        sport_pickers = sorted(set(sport_picks["Pick"])) if len(sport_picks) else []
+
+        checkpoint_dates = sorted(
+            {datetime.strptime(w["date"], "%Y-%m-%d").date() for c in computed.values() for w in c["weeks"][sport]}
+        )
+        weeks[sport] = [
+            {
+                "date": d.strftime("%Y-%m-%d"),
+                "label": d.strftime("%b %-d, %Y"),
+                "standings": standings_through(sport_pickers, sport_picks, d, trials, seed),
+            }
+            for d in checkpoint_dates
+        ]
+    return weeks
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trials", type=int, default=1_000_000)
@@ -170,18 +202,11 @@ def main():
     computed = {s: compute_season(Path(DATA_DIR) / s, args.trials, args.seed) for s in discover_seasons()}
 
     seasons_data = {s: {"pickers": c["pickers"], "weeks": c["weeks"]} for s, c in computed.items()}
+    all_pickers = sorted(set().union(*(set(c["pickers"]) for c in computed.values()))) if computed else []
 
-    all_nfl = pd.concat([c["nfl_picks"] for c in computed.values()], ignore_index=True) if computed else EMPTY_PICKS
-    all_cfb = pd.concat([c["cfb_picks"] for c in computed.values()], ignore_index=True) if computed else EMPTY_PICKS
-    all_combined = pd.concat([all_nfl, all_cfb], ignore_index=True)
-    all_pickers = sorted(set(all_nfl["Pick"]) | set(all_cfb["Pick"]))
-
-    by_season = {
-        sport: [
-            {"season": s, "label": s, "standings": c["weeks"][sport][-1]["standings"]}
-            for s, c in sorted(computed.items())
-            if c["weeks"][sport]
-        ]
+    all_time_weeks = all_time_weekly(computed, args.trials, args.seed)
+    latest_standings = {
+        sport: all_time_weeks[sport][-1]["standings"] if all_time_weeks[sport] else []
         for sport in ("combined", "nfl", "cfb")
     }
 
@@ -190,10 +215,8 @@ def main():
         "seasons": seasons_data,
         "all_time": {
             "pickers": all_pickers,
-            "combined": compute_standings(build_pick_infos(all_pickers, all_combined), args.trials, args.seed),
-            "nfl": compute_standings(build_pick_infos(all_pickers, all_nfl), args.trials, args.seed),
-            "cfb": compute_standings(build_pick_infos(all_pickers, all_cfb), args.trials, args.seed),
-            "by_season": by_season,
+            **latest_standings,
+            "weeks": all_time_weeks,
         },
     }
 
@@ -201,6 +224,8 @@ def main():
     for s, c in sorted(computed.items()):
         counts = {sport: len(c["weeks"][sport]) for sport in ("combined", "nfl", "cfb")}
         print(f"{s}: {counts}")
+    all_time_counts = {sport: len(all_time_weeks[sport]) for sport in ("combined", "nfl", "cfb")}
+    print(f"all_time: {all_time_counts}")
     print(f"Rebuilt {OUTPUT_PATH} from scratch across seasons: {list(computed)}")
 
 

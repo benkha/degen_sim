@@ -582,6 +582,7 @@
     <p>For each person, we take their realized record (W-L-P) and the American odds of every pick, and convert those odds into implied win probabilities (assuming no house edge).</p>
     <p>We then run a Monte Carlo simulation — <code>1,000,000</code> trials per person — to build the distribution of possible win counts (W) given those implied probabilities. From that distribution we compute a p-value: <code>P(W ≥ w)</code>, where <code>w</code> is the person's actual win count.</p>
     <p>A low p-value means a record this good would be rare by chance alone — a sign of skill. A high p-value means the implied odds predicted a much better record than they actually posted.</p>
+    <p>Each entry in the Weekly Snapshots and charts above is <strong>cumulative</strong>, not just that week in isolation: a given week's p-value is computed from every pick made from the start of the season (or, on the All-Time tab, from the start of tracking) through that week, not only the picks made during that specific week.</p>
     <p style="margin-top:1.1rem;padding-top:0.9rem;border-top:1px solid var(--border);"><strong style="color:var(--gold);">Limitations:</strong> Posted American odds include the sportsbook's vig, which isn't removed here — so implied probabilities run slightly higher than each bet's true fair probability. Even a bettor with zero real edge should expect a p-value somewhat above 0.5 on average; treat p-values as <em>relative</em> rankings within the group for a given week, not as absolute proof of being below average. Pushes count as non-wins (grouped with losses) rather than being dropped from the simulation, so the simulated sample size always matches the number of real picks.</p>
   </div>
 
@@ -628,14 +629,16 @@
   // ── Season-aware data accessors ─────────────────────────────────────────
   // NFL, CFB, and Combined each have their own checkpoint timeline (Combined pairs
   // up matching NFL/CFB weeks server-side, so it isn't just the union of the other
-  // two). In season mode a checkpoint is a week; in all-time mode, a season. Both
-  // shapes carry {label, standings}, so charts/cards work on either.
+  // two). Every checkpoint is a week, in season mode and all-time mode alike --
+  // all-time's weekly standings are cumulative across every season, not just the
+  // current one (so e.g. 2026 Week 1 already includes all of 2025). Both shapes
+  // carry {label, standings}, so charts/cards work on either.
   function getSeasonKeys() {
     return Object.keys(DATA.seasons).sort((a, b) => b.localeCompare(a)); // newest first
   }
 
   function getCheckpointsFor(sport) {
-    if (currentSeason === 'all_time') return DATA.all_time.by_season[sport] || [];
+    if (currentSeason === 'all_time') return DATA.all_time.weeks[sport] || [];
     const season = DATA.seasons[currentSeason];
     return (season && season.weeks && season.weeks[sport]) || [];
   }
@@ -664,10 +667,6 @@
 
   function getBadgeText() {
     const checkpoints = getCheckpoints();
-    if (currentSeason === 'all_time') {
-      const n = checkpoints.length;
-      return `Across ${n} season${n === 1 ? '' : 's'}`;
-    }
     const latest = checkpoints[checkpoints.length - 1];
     return latest ? `Through ${latest.label}` : 'No data yet';
   }
@@ -684,6 +683,15 @@
   function meterSplit(p) {
     const good = Math.round((1 - p) * 100);
     return { good, bad: 100 - good };
+  }
+
+  // Drops the redundant year from x-axis labels ("Oct 12, 2025" -> "Oct 12") --
+  // but only when every checkpoint shares the same year. All-time checkpoints can
+  // span multiple years (e.g. Dec 2025 into Sep 2026), where dropping the year
+  // would make the axis look like it repeats/goes backwards, so keep it there.
+  function axisLabel(cp, checkpoints) {
+    const years = new Set(checkpoints.map(c => c.date.slice(0, 4)));
+    return years.size > 1 ? cp.label : cp.label.replace(/, \d{4}$/, '');
   }
 
   function trendArrow(diff) {
@@ -734,8 +742,6 @@
   }
 
   function renderHeaderStats() {
-    const isAllTime = currentSeason === 'all_time';
-    document.getElementById('stat-weeks-label').textContent = isAllTime ? 'Seasons Tracked' : 'Weeks Tracked';
     document.getElementById('stat-weeks').textContent = getCheckpoints().length;
 
     const combinedRows = getStandingsRows('combined');
@@ -819,8 +825,11 @@
     }
     checkpoints.forEach((cp, i) => {
       if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
-      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono'; ctx.textAlign = 'center';
-      ctx.fillText(cp.label.replace(/, \d{4}$/, ''), PAD.left + i * xStep, H - 10);
+      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
+      // Right-align the last tick instead of centering it, so a longer label
+      // (e.g. one that includes a year) can't overflow past the canvas edge.
+      ctx.textAlign = i === n - 1 ? 'right' : 'center';
+      ctx.fillText(axisLabel(cp, checkpoints), PAD.left + i * xStep, H - 10);
     });
 
     const ranks = ranksForPickers(checkpoints, pickers);
@@ -891,8 +900,11 @@
     });
     checkpoints.forEach((cp, i) => {
       if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
-      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono'; ctx.textAlign = 'center';
-      ctx.fillText(cp.label.replace(/, \d{4}$/, ''), PAD.left + i * xStep, H - 10);
+      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
+      // Right-align the last tick instead of centering it, so a longer label
+      // (e.g. one that includes a year) can't overflow past the canvas edge.
+      ctx.textAlign = i === n - 1 ? 'right' : 'center';
+      ctx.fillText(axisLabel(cp, checkpoints), PAD.left + i * xStep, H - 10);
     });
 
     pickers.forEach(name => {
@@ -924,11 +936,6 @@
   }
 
   function renderSnapshotGrid() {
-    const isAllTime = currentSeason === 'all_time';
-    document.getElementById('rank-chart-title').textContent = isAllTime ? 'Ranking By Season' : 'Weekly Ranking';
-    document.getElementById('pval-chart-title').textContent = isAllTime ? 'Skill vs. Luck By Season' : 'Skill vs. Luck Over Time';
-    document.getElementById('snapshots-section-label').textContent = isAllTime ? 'Season Snapshots' : 'Weekly Snapshots';
-
     const grid = document.getElementById('week-grid');
     grid.innerHTML = [...getCheckpoints()].reverse().map(cp => {
       const rows = [...cp.standings].sort((a, b) => a.p_value - b.p_value);
@@ -1000,6 +1007,21 @@
     currentSeason = seasonKeys.find(s => (DATA.seasons[s].weeks.combined || []).length > 0) || seasonKeys[0] || 'all_time';
 
     renderAll();
+
+    // Canvas text is rasterized at draw time using whichever font is already
+    // loaded then -- unlike regular DOM text, it does NOT get redrawn if a web
+    // font (JetBrains Mono here) finishes downloading afterward. Redraw once
+    // the browser confirms all requested fonts are ready, so a slow/first
+    // load doesn't leave the chart axes stuck on a fallback font.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        if (getCheckpoints().length) {
+          renderRankChart();
+          renderPvalChart();
+        }
+      });
+    }
+
     window.addEventListener('resize', () => {
       if (getCheckpoints().length) {
         renderRankChart();
