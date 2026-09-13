@@ -364,7 +364,16 @@
       font-size: 0.68rem;
       letter-spacing: 0.04em;
       color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      padding: 0.15rem 0.3rem;
+      margin: -0.15rem -0.3rem;
+      border-radius: 3px;
+      transition: background 0.15s, opacity 0.15s;
     }
+    .legend-item:hover { background: rgba(233,228,216,0.06); color: var(--cream); }
+    .legend-item-hidden { opacity: 0.35; }
+    .legend-item-hidden .legend-dot { background: transparent !important; border: 1.5px solid var(--faint); }
     .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
     /* WEEKLY CARDS */
@@ -595,6 +604,26 @@
   let currentSport = 'combined';
   let currentSeason = null; // a season key like "2025", or "all_time"
   let DATA = null;
+  const hiddenPickers = new Set(); // toggled off via clicking a chart legend item
+
+  // Click any legend dot/name to hide that picker's line on both charts (handy
+  // when 10 overlapping lines get too crowded to read); click again to bring it back.
+  function renderLegend(containerId, pickers) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = pickers.map(name => `
+      <div class="legend-item ${hiddenPickers.has(name) ? 'legend-item-hidden' : ''}" data-name="${name}">
+        <div class="legend-dot" style="background:${colorFor(name)}"></div>${name}
+      </div>
+    `).join('');
+    el.querySelectorAll('.legend-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const name = item.dataset.name;
+        hiddenPickers.has(name) ? hiddenPickers.delete(name) : hiddenPickers.add(name);
+        renderRankChart();
+        renderPvalChart();
+      });
+    });
+  }
 
   // ── Season-aware data accessors ─────────────────────────────────────────
   // NFL, CFB, and Combined each have their own checkpoint timeline (Combined pairs
@@ -796,6 +825,7 @@
 
     const ranks = ranksForPickers(checkpoints, pickers);
     pickers.forEach(name => {
+      if (hiddenPickers.has(name)) return;
       const series = ranks[name];
       const color = colorFor(name);
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
@@ -816,9 +846,7 @@
       });
     });
 
-    document.getElementById('rank-legend').innerHTML = pickers.map(name => `
-      <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
-    `).join('');
+    renderLegend('rank-legend', pickers);
   }
 
   function renderPvalChart() {
@@ -868,6 +896,7 @@
     });
 
     pickers.forEach(name => {
+      if (hiddenPickers.has(name)) return;
       const color = colorFor(name);
       const series = checkpoints.map(cp => {
         const row = cp.standings.find(r => r.name === name);
@@ -891,9 +920,7 @@
       });
     });
 
-    document.getElementById('pval-legend').innerHTML = pickers.map(name => `
-      <div class="legend-item"><div class="legend-dot" style="background:${colorFor(name)}"></div>${name}</div>
-    `).join('');
+    renderLegend('pval-legend', pickers);
   }
 
   function renderSnapshotGrid() {
