@@ -522,9 +522,9 @@
         <tbody id="standings-body"></tbody>
       </table>
       <div class="heat-legend">
-        <span class="heat-tag heat-hot">Hot</span><span>p &lt; 0.3 — better than the odds implied</span>
-        <span class="heat-tag heat-mid">Steady</span><span>0.3 – 0.7 — roughly in line with the odds</span>
-        <span class="heat-tag heat-cold">Cold</span><span>p &gt; 0.7 — worse than the odds implied</span>
+        <span class="heat-tag heat-hot">Hot</span><span>p &lt; 0.4 — better than the odds implied</span>
+        <span class="heat-tag heat-mid">Steady</span><span>0.4 – 0.6 — roughly in line with the odds</span>
+        <span class="heat-tag heat-cold">Cold</span><span>p &gt; 0.6 — worse than the odds implied</span>
       </div>
     </div>
 
@@ -639,8 +639,8 @@
   }
 
   function heatTag(p) {
-    if (p < 0.3) return { cls: 'heat-hot', label: 'Hot' };
-    if (p > 0.7) return { cls: 'heat-cold', label: 'Cold' };
+    if (p < 0.4) return { cls: 'heat-hot', label: 'Hot' };
+    if (p > 0.6) return { cls: 'heat-cold', label: 'Cold' };
     return { cls: 'heat-mid', label: 'Steady' };
   }
 
