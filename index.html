@@ -1037,7 +1037,7 @@
     DATA.all_time.pickers.forEach(name => colorFor(name));
 
     const seasonKeys = getSeasonKeys();
-    currentSeason = 'all_time';
+    currentSeason = seasonKeys.find(s => (DATA.seasons[s].weeks.combined || []).length > 0) || seasonKeys[0] || 'all_time';
 
     renderAll();
 
