@@ -694,6 +694,19 @@
     return years.size > 1 ? cp.label : cp.label.replace(/, \d{4}$/, '');
   }
 
+  // How many checkpoints to skip between x-axis tick labels so they don't
+  // overlap. A fixed "every other" skip (old behavior) works for the small
+  // per-season checkpoint lists but breaks down for All-Time, which can have
+  // far more checkpoints than fit even at half density -- so size the skip
+  // to the actual measured label width vs. the pixel spacing between ticks.
+  function tickStride(ctx, checkpoints, xStep, font) {
+    ctx.font = font;
+    const maxLabelW = checkpoints.reduce(
+      (m, cp) => Math.max(m, ctx.measureText(axisLabel(cp, checkpoints)).width), 0);
+    const minGap = 10;
+    return Math.max(1, Math.ceil((maxLabelW + minGap) / xStep));
+  }
+
   function trendArrow(diff) {
     if (diff === null) return '<span class="trend-same">—</span>';
     if (diff > 0) return `<span class="trend-up">▲ ${diff}</span>`;
@@ -823,8 +836,9 @@
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
       ctx.fillText(r, PAD.left - 6, y + 3);
     }
+    const rankStride = tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono');
     checkpoints.forEach((cp, i) => {
-      if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
+      if (i % rankStride !== 0 && i !== n - 1) return;
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
       // Right-align the last tick instead of centering it, so a longer label
       // (e.g. one that includes a year) can't overflow past the canvas edge.
@@ -898,8 +912,9 @@
       ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
       ctx.fillText(v.toFixed(2), PAD.left - 6, y + 3);
     });
+    const pvalStride = tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono');
     checkpoints.forEach((cp, i) => {
-      if (n > 8 && i % 2 !== 0 && i !== n - 1) return;
+      if (i % pvalStride !== 0 && i !== n - 1) return;
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
       // Right-align the last tick instead of centering it, so a longer label
       // (e.g. one that includes a year) can't overflow past the canvas edge.
