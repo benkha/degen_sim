@@ -707,6 +707,24 @@
     return Math.max(1, Math.ceil((maxLabelW + minGap) / xStep));
   }
 
+  // Indices of checkpoints to draw a tick label at: every `stride`-th one,
+  // always including the last. The last is forced on so the axis' final date
+  // is never missing -- but forcing it on can land it right next to the
+  // preceding regular tick (e.g. stride puts ticks at ...,12,14 and n-1=15
+  // gets force-added right beside 14), which just re-creates the overlap the
+  // stride was computed to avoid. So drop that preceding tick when it's
+  // closer to the end than `stride` would normally allow.
+  function tickIndices(n, stride) {
+    const idxs = [];
+    for (let i = 0; i < n; i += stride) idxs.push(i);
+    const last = n - 1;
+    if (idxs[idxs.length - 1] !== last) {
+      if (idxs.length && last - idxs[idxs.length - 1] < stride) idxs.pop();
+      idxs.push(last);
+    }
+    return new Set(idxs);
+  }
+
   function trendArrow(diff) {
     if (diff === null) return '<span class="trend-same">—</span>';
     if (diff > 0) return `<span class="trend-up">▲ ${diff}</span>`;
@@ -836,9 +854,9 @@
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
       ctx.fillText(r, PAD.left - 6, y + 3);
     }
-    const rankStride = tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono');
+    const rankTicks = tickIndices(n, tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono'));
     checkpoints.forEach((cp, i) => {
-      if (i % rankStride !== 0 && i !== n - 1) return;
+      if (!rankTicks.has(i)) return;
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
       // Right-align the last tick instead of centering it, so a longer label
       // (e.g. one that includes a year) can't overflow past the canvas edge.
@@ -912,9 +930,9 @@
       ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
       ctx.fillText(v.toFixed(2), PAD.left - 6, y + 3);
     });
-    const pvalStride = tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono');
+    const pvalTicks = tickIndices(n, tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono'));
     checkpoints.forEach((cp, i) => {
-      if (i % pvalStride !== 0 && i !== n - 1) return;
+      if (!pvalTicks.has(i)) return;
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
       // Right-align the last tick instead of centering it, so a longer label
       // (e.g. one that includes a year) can't overflow past the canvas edge.
@@ -1019,7 +1037,7 @@
     DATA.all_time.pickers.forEach(name => colorFor(name));
 
     const seasonKeys = getSeasonKeys();
-    currentSeason = seasonKeys.find(s => (DATA.seasons[s].weeks.combined || []).length > 0) || seasonKeys[0] || 'all_time';
+    currentSeason = 'all_time';
 
     renderAll();
 
