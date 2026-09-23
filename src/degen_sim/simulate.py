@@ -14,6 +14,7 @@ loss and a push. That's intentional, not a bug: a push is itself a real
 real information rather than fix anything.
 """
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -30,11 +31,13 @@ class PickInfo:
 
 
 def implied_probability(odds: float) -> float:
+    # American odds are always <= -100 or >= +100; anything in between (or NaN)
+    # is a data-entry mistake that would otherwise yield a plausible-looking probability.
+    if math.isnan(odds) or abs(odds) < 100:
+        raise ValueError(f"Invalid American odds {odds!r}: must be <= -100 or >= +100")
     if odds > 0:
         return 100 / (odds + 100)
-    if odds < 0:
-        return abs(odds) / (abs(odds) + 100)
-    raise ValueError("Odds cannot be zero")
+    return abs(odds) / (abs(odds) + 100)
 
 
 def build_pick_infos(pickers: list[str], picks: pd.DataFrame) -> list[PickInfo]:
