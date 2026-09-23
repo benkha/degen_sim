@@ -489,7 +489,7 @@
     <div class="season-tabs" id="season-tabs" style="margin-top:1.5rem;"></div>
     <div class="header-meta">
       <div>
-        <div class="stat-label" id="stat-weeks-label">Weeks Tracked</div>
+        <div class="stat-label">Weeks Tracked</div>
         <div class="stat-val" id="stat-weeks">—</div>
       </div>
       <div>
@@ -512,7 +512,7 @@
 
   <div class="empty-state" id="empty-state" hidden>
     <div class="empty-state-icon">🏈</div>
-    <p>No picks logged yet for this season — check back once games kick off.</p>
+    <p id="empty-state-text"></p>
   </div>
 
   <div id="season-content">
@@ -607,21 +607,25 @@
   let DATA = null;
   const hiddenPickers = new Set(); // toggled off via clicking a chart legend item
 
+  // Picker names come straight from the CSVs, so escape them before they go
+  // into any innerHTML (a stray quote or < would otherwise break the markup).
+  const HTML_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  const esc = s => String(s).replace(/[&<>"']/g, c => HTML_ESCAPES[c]);
+
   // Click any legend dot/name to hide that picker's line on both charts (handy
   // when 10 overlapping lines get too crowded to read); click again to bring it back.
   function renderLegend(containerId, pickers) {
     const el = document.getElementById(containerId);
     el.innerHTML = pickers.map(name => `
-      <div class="legend-item ${hiddenPickers.has(name) ? 'legend-item-hidden' : ''}" data-name="${name}">
-        <div class="legend-dot" style="background:${colorFor(name)}"></div>${name}
+      <div class="legend-item ${hiddenPickers.has(name) ? 'legend-item-hidden' : ''}" data-name="${esc(name)}">
+        <div class="legend-dot" style="background:${colorFor(name)}"></div>${esc(name)}
       </div>
     `).join('');
     el.querySelectorAll('.legend-item').forEach(item => {
       item.addEventListener('click', () => {
         const name = item.dataset.name;
         hiddenPickers.has(name) ? hiddenPickers.delete(name) : hiddenPickers.add(name);
-        renderRankChart();
-        renderPvalChart();
+        renderCharts();
       });
     });
   }
@@ -653,7 +657,6 @@
   }
 
   function getStandingsRows(sport) {
-    if (currentSeason === 'all_time') return DATA.all_time[sport] || [];
     const checkpoints = getCheckpointsFor(sport);
     const latest = checkpoints[checkpoints.length - 1];
     return latest ? latest.standings : [];
@@ -669,6 +672,28 @@
     const checkpoints = getCheckpoints();
     const latest = checkpoints[checkpoints.length - 1];
     return latest ? `Through ${latest.label}` : 'No data yet';
+  }
+
+  // Sorts standings best-first (lowest p-value) and gives each row a shared
+  // "competition" rank (1, 2, 2, 4): pickers with identical p-values -- e.g.
+  // everyone still winless, all at p = 1.0 -- tie instead of being split into
+  // distinct ranks by name order. `tied` marks rows that share their rank.
+  function rankRows(standings) {
+    const rows = [...standings].sort((a, b) => a.p_value - b.p_value);
+    const counts = {};
+    rows.forEach(r => { counts[r.p_value] = (counts[r.p_value] || 0) + 1; });
+    let rank = 0;
+    return rows.map((r, i) => {
+      if (i === 0 || r.p_value !== rows[i - 1].p_value) rank = i + 1;
+      return { ...r, rank, tied: counts[r.p_value] > 1 };
+    });
+  }
+
+  // Name of whoever's ranked #1, or of both if two are tied for it. Returns
+  // unescaped text ('' when there are no rows).
+  function leaderLabel(ranked) {
+    const leaders = ranked.filter(r => r.rank === 1);
+    return leaders.length > 2 ? `${leaders.length}-Way Tie` : leaders.map(r => r.name).join(' / ');
   }
 
   function heatTag(p) {
@@ -737,9 +762,8 @@
     const ranks = {};
     pickers.forEach(p => ranks[p] = []);
     checkpoints.forEach(cp => {
-      const rows = [...cp.standings].sort((a, b) => a.p_value - b.p_value);
       const seen = new Set();
-      rows.forEach((r, i) => { ranks[r.name].push(i + 1); seen.add(r.name); });
+      rankRows(cp.standings).forEach(r => { ranks[r.name].push(r.rank); seen.add(r.name); });
       pickers.forEach(p => { if (!seen.has(p)) ranks[p].push(null); });
     });
     return ranks;
@@ -772,41 +796,38 @@
     });
   }
 
+  // All three stats follow the selected sport tab, so they always describe
+  // the same slice of picks as the leaderboard below them.
   function renderHeaderStats() {
     document.getElementById('stat-weeks').textContent = getCheckpoints().length;
 
-    const combinedRows = getStandingsRows('combined');
-    const totalPicks = combinedRows.reduce((sum, r) => sum + r.wins + r.losses + r.pushes, 0);
+    const rows = getStandingsRows(currentSport);
+    const totalPicks = rows.reduce((sum, r) => sum + r.wins + r.losses + r.pushes, 0);
     document.getElementById('stat-picks').textContent = totalPicks;
 
-    const leader = [...combinedRows].sort((a, b) => a.p_value - b.p_value)[0];
-    document.getElementById('stat-leader').textContent = leader ? leader.name : '—';
+    document.getElementById('stat-leader').textContent = leaderLabel(rankRows(rows)) || '—';
   }
 
   function renderStandings() {
-    const rows = [...getStandingsRows(currentSport)].sort((a, b) => a.p_value - b.p_value);
+    const rows = rankRows(getStandingsRows(currentSport));
     const prevRowsRaw = getPrevStandingsRows(currentSport);
 
     const prevRankMap = {};
-    if (prevRowsRaw) {
-      [...prevRowsRaw].sort((a, b) => a.p_value - b.p_value)
-        .forEach((r, i) => { prevRankMap[r.name] = i + 1; });
-    }
+    if (prevRowsRaw) rankRows(prevRowsRaw).forEach(r => { prevRankMap[r.name] = r.rank; });
 
     document.getElementById('standings-title').textContent =
       currentSeason === 'all_time' ? 'All-Time Leaderboard' : `${currentSeason} Season Leaderboard`;
     document.getElementById('standings-badge').textContent = getBadgeText();
 
-    document.getElementById('standings-body').innerHTML = rows.map((r, i) => {
-      const rank = i + 1;
+    document.getElementById('standings-body').innerHTML = rows.map(r => {
       const prevRank = prevRankMap[r.name] ?? null;
-      const diff = prevRank !== null ? prevRank - rank : null;
+      const diff = prevRank !== null ? prevRank - r.rank : null;
       const heat = heatTag(r.p_value);
       const split = meterSplit(r.p_value);
       const record = `${r.wins}-${r.losses}${r.pushes ? '-' + r.pushes : ''}`;
-      return `<tr class="${rank === 1 ? 'first-place' : ''}">
-        <td class="rank">${rank}</td>
-        <td class="player-name">${r.name}</td>
+      return `<tr class="${r.rank === 1 ? 'first-place' : ''}">
+        <td class="rank">${r.tied ? 'T' : ''}${r.rank}</td>
+        <td class="player-name">${esc(r.name)}</td>
         <td class="record">${record}</td>
         <td class="pval">${r.p_value.toFixed(3)}</td>
         <td class="meter">
@@ -822,12 +843,17 @@
     }).join('');
   }
 
-  function renderRankChart() {
-    const canvas = document.getElementById('rankChart');
+  // Shared by both charts: sizes the canvas for the device pixel ratio, draws a
+  // horizontal gridline + label per `yTicks` entry (`highlight` = dashed gold
+  // reference line), date labels along the x-axis, then one line per visible
+  // picker from `seriesFor(name)` (one value or null per checkpoint).
+  // `yFrac(value)` maps a value to 0 (top of the plot) .. 1 (bottom).
+  function renderLineChart({ canvasId, legendId, height, padLeft, checkpoints, pickers, yTicks, yFrac, seriesFor }) {
+    const canvas = document.getElementById(canvasId);
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const W = canvas.offsetWidth || 520;
-    const H = 260;
+    const H = height;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -835,148 +861,105 @@
     canvas.style.height = H + 'px';
     ctx.clearRect(0, 0, W, H);
 
-    const checkpoints = getCheckpoints();
-    const pickers = getPickers();
-    const numPlayers = pickers.length;
     const n = checkpoints.length;
     if (!n) return;
 
-    const PAD = { top: 16, right: 16, bottom: 30, left: 28 };
+    const PAD = { top: 16, right: 16, bottom: 30, left: padLeft };
     const chartW = W - PAD.left - PAD.right;
     const chartH = H - PAD.top - PAD.bottom;
     const xStep = n > 1 ? chartW / (n - 1) : chartW / 2;
-    const yStep = chartH / (numPlayers - 1 || 1);
+    const xAt = i => PAD.left + i * xStep;
+    const yAt = v => PAD.top + yFrac(v) * chartH;
 
-    for (let r = 1; r <= numPlayers; r++) {
-      const y = PAD.top + (r - 1) * yStep;
-      ctx.beginPath(); ctx.strokeStyle = 'rgba(233,228,216,0.08)'; ctx.lineWidth = 1;
-      ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + chartW, y); ctx.stroke();
-      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
-      ctx.fillText(r, PAD.left - 6, y + 3);
-    }
-    const rankTicks = tickIndices(n, tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono'));
-    checkpoints.forEach((cp, i) => {
-      if (!rankTicks.has(i)) return;
-      ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
-      // Right-align the last tick instead of centering it, so a longer label
-      // (e.g. one that includes a year) can't overflow past the canvas edge.
-      ctx.textAlign = i === n - 1 ? 'right' : 'center';
-      ctx.fillText(axisLabel(cp, checkpoints), PAD.left + i * xStep, H - 10);
-    });
-
-    const ranks = ranksForPickers(checkpoints, pickers);
-    pickers.forEach(name => {
-      if (hiddenPickers.has(name)) return;
-      const series = ranks[name];
-      const color = colorFor(name);
-      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
-      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      let started = false;
-      series.forEach((r, i) => {
-        if (r === null) { started = false; return; }
-        const x = PAD.left + i * xStep, y = PAD.top + (r - 1) * yStep;
-        if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
-      });
-      ctx.stroke();
-      series.forEach((r, i) => {
-        if (r === null) return;
-        const x = PAD.left + i * xStep, y = PAD.top + (r - 1) * yStep;
-        ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2);
-        ctx.fillStyle = color; ctx.fill();
-        ctx.strokeStyle = '#0A1512'; ctx.lineWidth = 1.2; ctx.stroke();
-      });
-    });
-
-    renderLegend('rank-legend', pickers);
-  }
-
-  function renderPvalChart() {
-    const canvas = document.getElementById('pvalChart');
-    const ctx = canvas.getContext('2d');
-    const dpr = window.devicePixelRatio || 1;
-    const W = canvas.offsetWidth || 520;
-    const H = 280;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(dpr, dpr);
-    canvas.style.height = H + 'px';
-    ctx.clearRect(0, 0, W, H);
-
-    const checkpoints = getCheckpoints();
-    const pickers = getPickers();
-    const n = checkpoints.length;
-    if (!n) return;
-
-    const PAD = { top: 16, right: 16, bottom: 30, left: 34 };
-    const chartW = W - PAD.left - PAD.right;
-    const chartH = H - PAD.top - PAD.bottom;
-    const xStep = n > 1 ? chartW / (n - 1) : chartW / 2;
-
-    // gridlines 0, 0.25, 0.5, 0.75, 1
-    [0, 0.25, 0.5, 0.75, 1].forEach(v => {
-      const y = PAD.top + chartH - v * chartH;
+    yTicks.forEach(({ value, label, highlight }) => {
+      const y = yAt(value);
       ctx.beginPath();
-      if (v === 0.5) {
-        ctx.strokeStyle = 'rgba(217,168,49,0.5)'; ctx.lineWidth = 1;
-        ctx.setLineDash([4, 3]);
-      } else {
-        ctx.strokeStyle = 'rgba(233,228,216,0.08)'; ctx.lineWidth = 1;
-        ctx.setLineDash([]);
-      }
+      ctx.strokeStyle = highlight ? 'rgba(217,168,49,0.5)' : 'rgba(233,228,216,0.08)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash(highlight ? [4, 3] : []);
       ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + chartW, y); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = v === 0.5 ? 'rgba(217,168,49,0.8)' : 'rgba(233,228,216,0.3)';
+      ctx.fillStyle = highlight ? 'rgba(217,168,49,0.8)' : 'rgba(233,228,216,0.3)';
       ctx.font = '9px JetBrains Mono'; ctx.textAlign = 'right';
-      ctx.fillText(v.toFixed(2), PAD.left - 6, y + 3);
+      ctx.fillText(label, PAD.left - 6, y + 3);
     });
-    const pvalTicks = tickIndices(n, tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono'));
+
+    const xTicks = tickIndices(n, tickStride(ctx, checkpoints, xStep, '8px JetBrains Mono'));
     checkpoints.forEach((cp, i) => {
-      if (!pvalTicks.has(i)) return;
+      if (!xTicks.has(i)) return;
       ctx.fillStyle = 'rgba(233,228,216,0.3)'; ctx.font = '8px JetBrains Mono';
       // Right-align the last tick instead of centering it, so a longer label
       // (e.g. one that includes a year) can't overflow past the canvas edge.
       ctx.textAlign = i === n - 1 ? 'right' : 'center';
-      ctx.fillText(axisLabel(cp, checkpoints), PAD.left + i * xStep, H - 10);
+      ctx.fillText(axisLabel(cp, checkpoints), xAt(i), H - 10);
     });
 
     pickers.forEach(name => {
       if (hiddenPickers.has(name)) return;
+      const series = seriesFor(name);
       const color = colorFor(name);
-      const series = checkpoints.map(cp => {
-        const row = cp.standings.find(r => r.name === name);
-        return row ? row.p_value : null;
-      });
       ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       let started = false;
       series.forEach((v, i) => {
         if (v === null) { started = false; return; }
-        const x = PAD.left + i * xStep, y = PAD.top + chartH - v * chartH;
-        if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+        if (!started) { ctx.moveTo(xAt(i), yAt(v)); started = true; } else { ctx.lineTo(xAt(i), yAt(v)); }
       });
       ctx.stroke();
       series.forEach((v, i) => {
         if (v === null) return;
-        const x = PAD.left + i * xStep, y = PAD.top + chartH - v * chartH;
-        ctx.beginPath(); ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(xAt(i), yAt(v), 3.2, 0, Math.PI * 2);
         ctx.fillStyle = color; ctx.fill();
         ctx.strokeStyle = '#0A1512'; ctx.lineWidth = 1.2; ctx.stroke();
       });
     });
 
-    renderLegend('pval-legend', pickers);
+    renderLegend(legendId, pickers);
+  }
+
+  function renderRankChart() {
+    const checkpoints = getCheckpoints();
+    const pickers = getPickers();
+    const ranks = ranksForPickers(checkpoints, pickers);
+    const numPlayers = pickers.length;
+    renderLineChart({
+      canvasId: 'rankChart', legendId: 'rank-legend', height: 260, padLeft: 28,
+      checkpoints, pickers,
+      yTicks: pickers.map((_, i) => ({ value: i + 1, label: i + 1 })),
+      yFrac: r => (r - 1) / (numPlayers - 1 || 1),
+      seriesFor: name => ranks[name],
+    });
+  }
+
+  function renderPvalChart() {
+    const checkpoints = getCheckpoints();
+    renderLineChart({
+      canvasId: 'pvalChart', legendId: 'pval-legend', height: 280, padLeft: 34,
+      checkpoints, pickers: getPickers(),
+      // gridlines 0, 0.25, 0.5, 0.75, 1 -- with p = 0.5 (a coin flip) highlighted
+      yTicks: [0, 0.25, 0.5, 0.75, 1].map(v => ({ value: v, label: v.toFixed(2), highlight: v === 0.5 })),
+      yFrac: v => 1 - v,
+      seriesFor: name => checkpoints.map(cp => {
+        const row = cp.standings.find(r => r.name === name);
+        return row ? row.p_value : null;
+      }),
+    });
+  }
+
+  function renderCharts() {
+    renderRankChart();
+    renderPvalChart();
   }
 
   function renderSnapshotGrid() {
     const grid = document.getElementById('week-grid');
     grid.innerHTML = [...getCheckpoints()].reverse().map(cp => {
-      const rows = [...cp.standings].sort((a, b) => a.p_value - b.p_value);
-      const top = rows[0];
+      const rows = rankRows(cp.standings);
+      const leader = leaderLabel(rows);
       const rowsHtml = rows.map(r => {
         const split = meterSplit(r.p_value);
         return `<div class="week-row">
-          <span class="week-row-name"><span class="legend-dot" style="background:${colorFor(r.name)}"></span>${r.name}</span>
+          <span class="week-row-name"><span class="legend-dot" style="background:${colorFor(r.name)}"></span>${esc(r.name)}</span>
           <div class="week-row-bar-wrap meter-track">
             <div class="meter-fill-good" style="width:${split.good}%"></div>
             <div class="meter-fill-bad" style="left:${split.good}%; width:${split.bad}%"></div>
@@ -988,7 +971,7 @@
       return `<div class="week-card">
         <div class="week-card-header">
           <div class="week-date">${cp.label}</div>
-          ${top ? `<div class="week-top">🔥 ${top.name}</div>` : ''}
+          ${leader ? `<div class="week-top">🔥 ${esc(leader)}</div>` : ''}
         </div>
         <div class="week-rows">${rowsHtml}</div>
       </div>`;
@@ -1009,14 +992,18 @@
     const hasData = getCheckpoints().length > 0;
     document.getElementById('empty-state').hidden = hasData;
     document.getElementById('season-content').hidden = !hasData;
-    if (!hasData) return;
+    if (!hasData) {
+      // Name the sport when it's only this tab that's empty, not the whole season.
+      const what = seasonHasAnyData ? `${SPORT_LABELS[currentSport]} picks` : 'picks';
+      const scope = currentSeason === 'all_time' ? '' : ' this season';
+      document.getElementById('empty-state-text').textContent =
+        `No ${what} logged yet${scope} — check back once games kick off.`;
+      return;
+    }
 
     renderStandings();
     renderSnapshotGrid();
-    setTimeout(() => {
-      renderRankChart();
-      renderPvalChart();
-    }, 30);
+    setTimeout(renderCharts, 30);
   }
 
   async function init() {
@@ -1048,18 +1035,18 @@
     // load doesn't leave the chart axes stuck on a fallback font.
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => {
-        if (getCheckpoints().length) {
-          renderRankChart();
-          renderPvalChart();
-        }
+        if (getCheckpoints().length) renderCharts();
       });
     }
 
+    // Debounced: a drag-resize fires dozens of events, and each redraw
+    // re-renders both full charts.
+    let resizeTimer = null;
     window.addEventListener('resize', () => {
-      if (getCheckpoints().length) {
-        renderRankChart();
-        renderPvalChart();
-      }
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (getCheckpoints().length) renderCharts();
+      }, 100);
     });
   }
 
