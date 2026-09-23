@@ -6,7 +6,6 @@ import pytest
 
 import generate_data
 
-TRIALS = 2_000
 CONFIG = {"nfl": {"week1_date": "2025-09-07"}, "cfb": {"week1_date": "2025-08-30"}, "cfb_week_offset": 1}
 HEADER = "Week,Pick,Bet,Odds,Win\n"
 
@@ -110,7 +109,7 @@ def test_build_data_all_time_stacks_earlier_seasons(tmp_path):
     )
     write_season(tmp_path, "2027", config={"nfl": {"week1_date": None}, "cfb": {"week1_date": None}})
 
-    data = generate_data.build_data(tmp_path, TRIALS, seed=0)
+    data = generate_data.build_data(tmp_path)
 
     # Every season gets an entry, even one with no picks yet.
     assert data["seasons"]["2027"] == {"pickers": [], "weeks": {"combined": [], "nfl": [], "cfb": []}}

@@ -1,7 +1,7 @@
 [project]
 name = "degen-sim"
 version = "0.1.0"
-description = "Monte Carlo skill-vs-luck standings for a friend group's weekly sports picks"
+description = "Skill-vs-luck standings for a friend group's weekly sports picks"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

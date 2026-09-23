@@ -179,16 +179,16 @@ def discover_seasons(data_dir: Path) -> list[str]:
     return sorted(p.name for p in data_dir.iterdir() if p.is_dir() and re.fullmatch(r"\d{4}", p.name))
 
 
-def standings(picks: pd.DataFrame, trials: int, seed: int) -> list[dict]:
+def standings(picks: pd.DataFrame) -> list[dict]:
     pickers = sorted(set(picks["Pick"]))
-    return compute_standings(build_pick_infos(pickers, picks), trials, seed)
+    return compute_standings(build_pick_infos(pickers, picks))
 
 
 def checkpoint(cutoff: date, rows: list[dict]) -> dict:
     return {"date": cutoff.strftime("%Y-%m-%d"), "label": cutoff.strftime("%b %-d, %Y"), "standings": rows}
 
 
-def build_data(data_dir: Path, trials: int, seed: int) -> dict:
+def build_data(data_dir: Path) -> dict:
     seasons = {s: load_season(data_dir / s) for s in discover_seasons(data_dir)}
 
     seasons_data = {}
@@ -199,16 +199,13 @@ def build_data(data_dir: Path, trials: int, seed: int) -> dict:
         for sport in SPORTS:
             weeks[sport] = []
             for cutoff, picks in season["cuts"][sport]:
-                season_rows = standings(picks, trials, seed)
-                weeks[sport].append(checkpoint(cutoff, season_rows))
+                weeks[sport].append(checkpoint(cutoff, standings(picks)))
 
                 # All-time reuses this season's own cuts (so Combined keeps its NFL/CFB week
                 # pairing) but stacks every earlier season's picks underneath -- e.g. 2026
-                # Week 1 already includes all of 2025. With no earlier picks, that's the
-                # same simulation as the season's own, so reuse its result.
-                prior = prior_picks[sport]
-                all_time_rows = standings(concat([*prior, picks]), trials, seed) if prior else season_rows
-                all_time_weeks[sport].append(checkpoint(cutoff, all_time_rows))
+                # Week 1 already includes all of 2025.
+                all_time_picks = concat([*prior_picks[sport], picks])
+                all_time_weeks[sport].append(checkpoint(cutoff, standings(all_time_picks)))
             prior_picks[sport].append(season["picks"][sport])
         seasons_data[s] = {"pickers": season["pickers"], "weeks": weeks}
 
@@ -222,12 +219,10 @@ def build_data(data_dir: Path, trials: int, seed: int) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--trials", type=int, default=1_000_000)
-    parser.add_argument("--seed", type=int, default=0)
-    args = parser.parse_args()
+    # No options -- this just gives `--help` the docstring above.
+    argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter).parse_args()
 
-    data = build_data(DATA_DIR, args.trials, args.seed)
+    data = build_data(DATA_DIR)
     OUTPUT_PATH.write_text(json.dumps(data, indent=2) + "\n")
 
     for s, season in data["seasons"].items():
