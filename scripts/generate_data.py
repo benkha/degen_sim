@@ -125,7 +125,9 @@ def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) ->
         (~odds.map(is_valid_american_odds), "Odds must be American odds (<= -100 or >= +100)", "Odds"),
         (week.isna() | (week % 1 != 0) | (week < 0), "Week must be a whole number", "Week"),
     ]
-    problems = sorted((line, f"{msg} (got {df.at[line, col]!r})") for mask, msg, col in checks for line in df.index[mask])
+    problems = sorted(
+        (line, f"{msg} (got {df.at[line, col]!r})") for mask, msg, col in checks for line in df.index[mask]
+    )
     if problems:
         details = "\n".join(f"  line {line}: {msg}" for line, msg in problems)
         raise SystemExit(f"{path} has invalid resolved picks:\n{details}")
@@ -139,8 +141,7 @@ def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) ->
 
     if not week1_date:
         raise SystemExit(
-            f"{path} has resolved picks but no week1_date is set in "
-            f"{season_dir / 'season.json'} -- fill it in."
+            f"{path} has resolved picks but no week1_date is set in {season_dir / 'season.json'} -- fill it in."
         )
     df["Date"] = df["Week"].apply(lambda w: week_date(week1_date, w))
     return df

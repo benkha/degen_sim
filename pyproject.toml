@@ -26,3 +26,6 @@ packages = ["src/degen_sim"]
 testpaths = ["tests"]
 # Lets tests `import generate_data` (scripts/ isn't a package).
 pythonpath = ["scripts"]
+
+[tool.ruff]
+line-length = 120

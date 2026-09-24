@@ -13,6 +13,7 @@ Dependency management uses `uv`.
 ```shell
 uv sync                 # install dependencies
 uv run ruff check .     # lint
+uv run ruff format .    # format (120-col, set in pyproject.toml)
 uv run pytest           # tests (tests/, fast -- exact math, no simulation)
 ```
 
