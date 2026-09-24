@@ -17,8 +17,9 @@ Mid-p averages exactly 1/2 under no skill at any sample size, and its "cold"
 counterpart P(W < w) + 1/2 * P(W = w) is exactly 1 - mid-p, so one scale reads
 hot and cold symmetrically.
 
-Pushes count toward the number of picks in the distribution (`num_games`) but not
-toward the win target (`num_wins`) they're judged against -- this models
+Pushes count toward the picks in the distribution (`odds` has one entry per pick,
+wins + losses + pushes) but not toward the win target (`num_wins`) they're judged
+against -- this models
 each pick as a binary Win vs. Not-Win event, where Not-Win covers both a
 loss and a push. That's intentional, not a bug: a push is itself a real
 "not a win" observation, so dropping it from the distribution would discard
@@ -55,16 +56,23 @@ def implied_probability(odds: float) -> float:
     return abs(odds) / (abs(odds) + 100)
 
 
-def build_pick_infos(pickers: list[str], picks: pd.DataFrame) -> list[PickInfo]:
-    pick_infos = []
-    for picker in pickers:
-        sub_df = picks[picks["Pick"] == picker]
-        odds = [implied_probability(o) for o in sub_df["Odds"]]
-        num_wins = int((sub_df["Win"] == "Y").sum())
-        num_losses = int((sub_df["Win"] == "N").sum())
-        num_pushes = int((sub_df["Win"] == "P").sum())
-        pick_infos.append(PickInfo(picker, num_wins, num_losses, num_pushes, odds))
-    return pick_infos
+def build_pick_infos(picks: pd.DataFrame) -> list[PickInfo]:
+    """Each picker's record and per-pick implied win probabilities, sorted by name.
+
+    One pass over the rows rather than filtering the frame once per picker, which
+    dominated the runtime once all-time checkpoints stack several seasons of picks.
+    """
+    infos: dict[str, PickInfo] = {}
+    for name, odds, result in zip(picks["Pick"], picks["Odds"], picks["Win"]):
+        info = infos.setdefault(name, PickInfo(name, 0, 0, 0, []))
+        info.odds.append(implied_probability(odds))
+        if result == "Y":
+            info.num_wins += 1
+        elif result == "N":
+            info.num_losses += 1
+        elif result == "P":
+            info.num_pushes += 1
+    return [infos[name] for name in sorted(infos)]
 
 
 def win_distribution(probs: list[float]) -> np.ndarray:

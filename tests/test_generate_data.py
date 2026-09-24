@@ -20,7 +20,7 @@ def write_season(data_dir: Path, year: str, nfl: str = "", cfb: str = "", config
 
 
 def load_nfl(season_dir: Path):
-    return generate_data.load_dated_picks(season_dir, "parlay_tracker_nfl.csv", "2025-09-07")
+    return generate_data.load_dated_picks(season_dir, "parlay_tracker_nfl.csv", date(2025, 9, 7))
 
 
 def test_load_dated_picks_normalizes_and_dates_resolved_rows(tmp_path):
@@ -53,7 +53,7 @@ def test_load_dated_picks_reports_every_bad_row_with_its_line(tmp_path):
             "1,,Colts +1,-105,P\n"  # line 7: blank Pick
             "1,Eve,Colts +1,,Y\n"  # line 8: missing Odds
             "1,Gus,Colts +1,inf,Y\n"  # line 9: infinite Odds
-            "0,Hal,Colts +1,-105,Y\n"  # line 10: weeks start at 1
+            "0,Hal,Colts +1,-105,Y\n"  # line 10: weeks start at 1 -- no Week 0, by design
             "1000000,Ivy,Colts +1,-105,Y\n"  # line 11: typo'd Week, would overflow the date math
             "1,Jon,Colts +1,-105, yes\n"  # line 12: bad Win, reported as written
             "1,Fay,Colts +1,50,\n"  # ungraded rows aren't validated
@@ -100,10 +100,68 @@ def test_load_dated_picks_rejects_rows_with_extra_fields(tmp_path):
     assert "line 3" not in message  # a trailing empty field is harmless
 
 
+def test_load_dated_picks_treats_empty_file_as_no_picks(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_text("")
+    assert load_nfl(season_dir).empty
+
+    (season_dir / "parlay_tracker_nfl.csv").write_text("\n \n")
+    assert load_nfl(season_dir).empty
+
+
+def test_load_dated_picks_skips_leading_blank_lines_before_header(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_text("\n" + HEADER + "1,Ann,Lions -3,-110,Y\n1,Bob,Jets +3,120,W\n")
+    with pytest.raises(SystemExit, match="line 4: Win must be"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_rejects_duplicate_columns(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_text("Week,Pick,Bet,Odds,Win,Win,,\n1,Ann,Lions -3,-110,Y,N,,\n")
+    with pytest.raises(SystemExit, match="line 1: duplicate column\\(s\\) in the header: Win$"):
+        load_nfl(season_dir)
+
+
 def test_load_dated_picks_requires_week1_date_once_picks_are_resolved(tmp_path):
     season_dir = write_season(tmp_path, "2025", nfl="1,Ann,Lions -3,-110,Y\n")
     with pytest.raises(SystemExit, match="no week1_date"):
         generate_data.load_dated_picks(season_dir, "parlay_tracker_nfl.csv", None)
+
+
+def test_load_season_config_parses_dates(tmp_path):
+    config = generate_data.load_season_config(write_season(tmp_path, "2025", config={"nfl": {"week1_date": None}}))
+    assert config == generate_data.SeasonConfig(None, None, 0)
+
+    config = generate_data.load_season_config(write_season(tmp_path, "2026"))
+    assert config == generate_data.SeasonConfig(date(2025, 9, 7), date(2025, 8, 30), 1)
+
+
+def test_load_season_config_reports_every_bad_value(tmp_path):
+    season_dir = write_season(
+        tmp_path,
+        "2025",
+        config={"nfl": {"week1_date": "9/7/2025"}, "cfb": "2025-08-30", "cfb_week_offset": "1"},
+    )
+    with pytest.raises(SystemExit) as exc:
+        generate_data.load_season_config(season_dir)
+    message = str(exc.value)
+    assert str(season_dir / "season.json") in message
+    assert "\"nfl.week1_date\" must be a YYYY-MM-DD date or null (got '9/7/2025')" in message
+    assert '"cfb" must be an object' in message
+    assert "\"cfb_week_offset\" must be a whole number (got '1')" in message
+
+
+def test_load_season_config_rejects_malformed_json(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "season.json").write_text('{"nfl": ')
+    with pytest.raises(SystemExit, match="isn't valid JSON"):
+        generate_data.load_season_config(season_dir)
+
+
+def test_discover_seasons_requires_data_dir(tmp_path):
+    with pytest.raises(SystemExit, match="doesn't exist"):
+        generate_data.discover_seasons(tmp_path / "data")
 
 
 def test_discover_seasons_ignores_non_year_folders(tmp_path):

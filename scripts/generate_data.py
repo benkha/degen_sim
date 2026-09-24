@@ -17,10 +17,15 @@ The Combined tab instead pairs up each NFL week with the CFB week cfb_week_offse
 ahead of it (e.g. CFB week 2 with NFL week 1) into one checkpoint, dated by whichever of
 the two week's dates is later.
 
+Weeks are numbered from 1 in both sports, and that's deliberate: there is no Week 0.
+If CFB's schedule has an official "Week 0", log it as Week 1 and set cfb.week1_date
+(and cfb_week_offset) to match -- a Week 0 row is rejected like any other bad row.
+
 Resolved picks (a non-blank Win) are validated on load -- Win must be Y/N/P, Odds must be
-valid American odds, Week a whole number from 1 to MAX_WEEK -- and any bad row aborts the run with its file
-and line number, rather than silently skewing the results. Seasons must also run in
-order: a week1_date that makes one season's checkpoints overlap an earlier season's
+valid American odds, Week a whole number from 1 to MAX_WEEK -- and any bad row aborts the
+run with its file and line number, rather than silently skewing the results. season.json
+is validated too (dates as YYYY-MM-DD, cfb_week_offset a whole number). Seasons must also
+run in order: a week1_date that makes one season's checkpoints overlap an earlier season's
 aborts the run too, since the All-Time timeline would otherwise go back in time.
 
 This always rebuilds data.json from scratch by reading every data/<year>/ directory --
@@ -33,12 +38,13 @@ import argparse
 import csv
 import json
 import re
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
 
-from degen_sim.simulate import PickInfo, build_pick_infos, compute_standings, is_valid_american_odds
+from degen_sim.simulate import build_pick_infos, compute_standings, is_valid_american_odds
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
@@ -47,9 +53,10 @@ OUTPUT_PATH = ROOT_DIR / "data.json"
 SPORTS = ("combined", "nfl", "cfb")
 REQUIRED_COLUMNS = ["Week", "Pick", "Odds", "Win"]
 VALID_RESULTS = {"Y", "N", "P"}
-# Both sports number their weeks from 1. No season runs past ~22 weeks (NFL's 18 plus
-# playoffs), so anything beyond this is a typo -- caught here rather than becoming a
-# checkpoint months in the future (or overflowing the date math entirely).
+# Both sports number their weeks from 1 -- Week 0 is rejected on purpose (see the module
+# docstring). No season runs past ~22 weeks (NFL's 18 plus playoffs), so anything beyond
+# this is a typo -- caught here rather than becoming a checkpoint months in the future (or
+# overflowing the date math entirely).
 MAX_WEEK = 25
 EMPTY_PICKS = pd.DataFrame(columns=["Week", "Pick", "Odds", "Win", "Date"])
 
@@ -57,21 +64,59 @@ EMPTY_PICKS = pd.DataFrame(columns=["Week", "Pick", "Odds", "Win", "Date"])
 Cut = tuple[date, pd.DataFrame]
 
 
-def load_season_config(season_dir: Path) -> dict:
+CONFIG_EXAMPLE = '{"nfl": {"week1_date": "YYYY-MM-DD"}, "cfb": {"week1_date": "YYYY-MM-DD"}, "cfb_week_offset": 1}'
+
+
+@dataclass
+class SeasonConfig:
+    nfl_week1_date: date | None  # None = not known yet (fine until that sport has resolved picks)
+    cfb_week1_date: date | None
+    cfb_week_offset: int
+
+
+def parse_week1_date(config: dict, sport: str, problems: list[str]) -> date | None:
+    section = config.get(sport) or {}
+    if not isinstance(section, dict):
+        problems.append(f'"{sport}" must be an object like {{"week1_date": "YYYY-MM-DD"}} (got {section!r})')
+        return None
+    raw = section.get("week1_date")
+    if raw in (None, ""):
+        return None
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        problems.append(f'"{sport}.week1_date" must be a YYYY-MM-DD date or null (got {raw!r})')
+        return None
+
+
+def load_season_config(season_dir: Path) -> SeasonConfig:
     config_path = season_dir / "season.json"
     if not config_path.exists():
         raise SystemExit(
             f"Missing {config_path}. Create it with each sport's Week 1 date and the "
-            f"CFB/NFL week offset, e.g.:\n"
-            '  {"nfl": {"week1_date": "YYYY-MM-DD"}, "cfb": {"week1_date": "YYYY-MM-DD"}, '
-            '"cfb_week_offset": 1}'
+            f"CFB/NFL week offset, e.g.:\n  {CONFIG_EXAMPLE}"
         )
-    return json.loads(config_path.read_text())
+    try:
+        config = json.loads(config_path.read_text())
+    except json.JSONDecodeError as e:
+        raise SystemExit(f"{config_path} isn't valid JSON: {e}") from None
+    if not isinstance(config, dict):
+        raise SystemExit(f"{config_path} must be a JSON object, e.g.:\n  {CONFIG_EXAMPLE}")
+
+    problems = []
+    nfl_week1_date = parse_week1_date(config, "nfl", problems)
+    cfb_week1_date = parse_week1_date(config, "cfb", problems)
+    cfb_week_offset = config.get("cfb_week_offset", 0)
+    # bool is a subclass of int, but `true` is certainly a mistake here.
+    if not isinstance(cfb_week_offset, int) or isinstance(cfb_week_offset, bool):
+        problems.append(f'"cfb_week_offset" must be a whole number (got {cfb_week_offset!r})')
+    if problems:
+        raise SystemExit(f"{config_path} is invalid:\n" + "\n".join(f"  {p}" for p in problems))
+    return SeasonConfig(nfl_week1_date, cfb_week1_date, cfb_week_offset)
 
 
-def week_date(week1_date: str, week: int) -> date:
-    anchor = datetime.strptime(week1_date, "%Y-%m-%d").date()
-    return anchor + timedelta(weeks=int(week) - 1)
+def week_date(week1_date: date, week: int) -> date:
+    return week1_date + timedelta(weeks=int(week) - 1)
 
 
 def concat(frames: list[pd.DataFrame]) -> pd.DataFrame:
@@ -88,10 +133,16 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
     missing values -- and (b) error line numbers stay right even when a quoted field
     spans several lines. A record with extra non-blank fields is an error rather than
     pandas' behavior of silently shifting its columns.
+
+    The header is the first non-blank line; an empty (or all-blank) file gives a frame
+    with no columns at all.
     """
     with path.open(newline="", encoding="utf-8-sig") as f:
         reader = csv.reader(f)
-        header = next(reader, [])
+        header = next((record for record in reader if any(v.strip() for v in record)), [])
+        dupes = sorted({c for c in header if c.strip() and header.count(c) > 1})
+        if dupes:
+            raise SystemExit(f"{path} line {reader.line_num}: duplicate column(s) in the header: {', '.join(dupes)}")
         rows, lines, extra = [], [], []
         start = reader.line_num + 1
         for record in reader:
@@ -106,12 +157,14 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=header, index=lines, dtype="object")
 
 
-def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) -> pd.DataFrame:
+def load_dated_picks(season_dir: Path, filename: str, week1_date: date | None) -> pd.DataFrame:
     path = season_dir / filename
     if not path.exists():
         return EMPTY_PICKS.copy()
 
     df = read_csv_rows(path)
+    if df.columns.empty:  # an empty file, e.g. one just created for a new season
+        return EMPTY_PICKS.copy()
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise SystemExit(f"{path} is missing column(s): {', '.join(missing)}")
@@ -161,8 +214,8 @@ def sport_cuts(picks: pd.DataFrame) -> list[Cut]:
 def combined_cuts(
     nfl_picks: pd.DataFrame,
     cfb_picks: pd.DataFrame,
-    nfl_week1_date: str | None,
-    cfb_week1_date: str | None,
+    nfl_week1_date: date | None,
+    cfb_week1_date: date | None,
     cfb_week_offset: int,
 ) -> list[Cut]:
     """One cut per NFL week, paired with the CFB week cfb_week_offset weeks ahead."""
@@ -189,18 +242,17 @@ def combined_cuts(
 
 def load_season(season_dir: Path) -> dict:
     config = load_season_config(season_dir)
-    nfl_week1_date = config.get("nfl", {}).get("week1_date")
-    cfb_week1_date = config.get("cfb", {}).get("week1_date")
-    cfb_week_offset = config.get("cfb_week_offset", 0)
+    nfl_picks = load_dated_picks(season_dir, "parlay_tracker_nfl.csv", config.nfl_week1_date)
+    cfb_picks = load_dated_picks(season_dir, "parlay_tracker_cfb.csv", config.cfb_week1_date)
 
-    nfl_picks = load_dated_picks(season_dir, "parlay_tracker_nfl.csv", nfl_week1_date)
-    cfb_picks = load_dated_picks(season_dir, "parlay_tracker_cfb.csv", cfb_week1_date)
-
+    # Every timeline's last cut holds all of that sport's picks for the season (build_data
+    # relies on this to stack earlier seasons under the All-Time checkpoints).
     return {
         "pickers": sorted(set(nfl_picks["Pick"]) | set(cfb_picks["Pick"])),
-        "picks": {"combined": concat([nfl_picks, cfb_picks]), "nfl": nfl_picks, "cfb": cfb_picks},
         "cuts": {
-            "combined": combined_cuts(nfl_picks, cfb_picks, nfl_week1_date, cfb_week1_date, cfb_week_offset),
+            "combined": combined_cuts(
+                nfl_picks, cfb_picks, config.nfl_week1_date, config.cfb_week1_date, config.cfb_week_offset
+            ),
             "nfl": sport_cuts(nfl_picks),
             "cfb": sport_cuts(cfb_picks),
         },
@@ -208,34 +260,18 @@ def load_season(season_dir: Path) -> dict:
 
 
 def discover_seasons(data_dir: Path) -> list[str]:
+    if not data_dir.is_dir():
+        raise SystemExit(
+            f"{data_dir} doesn't exist. It should hold one data/<year>/ folder per season (CSVs + "
+            f"season.json) -- data/ is gitignored, so on a fresh clone it has to be restored separately."
+        )
     # Only 4-digit year folders are seasons, so a stray folder (e.g. data/backup/) is
     # ignored rather than aborting the run for lacking a season.json.
     return sorted(p.name for p in data_dir.iterdir() if p.is_dir() and re.fullmatch(r"\d{4}", p.name))
 
 
-def pick_infos(picks: pd.DataFrame) -> dict[str, PickInfo]:
-    return {info.name: info for info in build_pick_infos(sorted(set(picks["Pick"])), picks)}
-
-
-def merge_pick_infos(a: dict[str, PickInfo], b: dict[str, PickInfo]) -> dict[str, PickInfo]:
-    """Each picker's combined record and odds across both sets of picks."""
-    merged = dict(a)
-    for name, info in b.items():
-        if name in merged:
-            prev = merged[name]
-            info = PickInfo(
-                name,
-                prev.num_wins + info.num_wins,
-                prev.num_losses + info.num_losses,
-                prev.num_pushes + info.num_pushes,
-                prev.odds + info.odds,
-            )
-        merged[name] = info
-    return merged
-
-
-def standings(infos: dict[str, PickInfo]) -> list[dict]:
-    return compute_standings([infos[name] for name in sorted(infos)])
+def standings(picks: pd.DataFrame) -> list[dict]:
+    return compute_standings(build_pick_infos(picks))
 
 
 def checkpoint(cutoff: date, rows: list[dict]) -> dict:
@@ -248,14 +284,13 @@ def build_data(data_dir: Path) -> dict:
     seasons_data = {}
     all_time_weeks = {sport: [] for sport in SPORTS}
     last_cutoff: dict[str, date] = {}
-    prior_infos = {sport: {} for sport in SPORTS}  # every earlier season's records, per picker
+    prior_picks = {sport: EMPTY_PICKS for sport in SPORTS}  # every earlier season's picks
     for s, season in seasons.items():  # oldest first
         weeks = {}
         for sport in SPORTS:
             weeks[sport] = []
             for cutoff, picks in season["cuts"][sport]:
-                infos = pick_infos(picks)
-                rows = standings(infos)
+                rows = standings(picks)
                 weeks[sport].append(checkpoint(cutoff, rows))
 
                 # All-time reuses this season's own cuts (so Combined keeps its NFL/CFB week
@@ -270,9 +305,10 @@ def build_data(data_dir: Path) -> dict:
                         f"{data_dir / s / 'season.json'} and the previous season's."
                     )
                 last_cutoff[sport] = cutoff
-                all_time_rows = standings(merge_pick_infos(prior_infos[sport], infos)) if prior_infos[sport] else rows
+                all_time_rows = standings(concat([prior_picks[sport], picks])) if len(prior_picks[sport]) else rows
                 all_time_weeks[sport].append(checkpoint(cutoff, all_time_rows))
-            prior_infos[sport] = merge_pick_infos(prior_infos[sport], pick_infos(season["picks"][sport]))
+            if season["cuts"][sport]:
+                prior_picks[sport] = concat([prior_picks[sport], season["cuts"][sport][-1][1]])
         seasons_data[s] = {"pickers": season["pickers"], "weeks": weeks}
 
     return {

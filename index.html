@@ -592,12 +592,14 @@
 
 <script>
   const COLORS = ['#D9A831','#4FAF6D','#E0554A','#5B8FD9','#B87BC9','#4FBFB0','#D97B4F','#8AA84F','#C95B93','#7A8CD9'];
+  // Picker names are arbitrary CSV text, so every per-name lookup uses a Map rather
+  // than a plain object -- a picker named e.g. "constructor" would otherwise hit
+  // Object.prototype.
   const colorFor = (() => {
-    const map = {};
-    let i = 0;
+    const map = new Map();
     return name => {
-      if (!(name in map)) map[name] = COLORS[i++ % COLORS.length];
-      return map[name];
+      if (!map.has(name)) map.set(name, COLORS[map.size % COLORS.length]);
+      return map.get(name);
     };
   })();
 
@@ -758,11 +760,10 @@
   }
 
   function ranksForPickers(checkpoints, pickers) {
-    // returns { name: [rank per checkpoint] }, ranks 1 = best (lowest p_value).
+    // returns Map name -> [rank per checkpoint], ranks 1 = best (lowest p_value).
     // Tied pickers share a rank, so they're fanned out just below it (by at most
     // 0.8, never reaching the next rank) rather than drawn exactly on top of each other.
-    const ranks = {};
-    pickers.forEach(p => ranks[p] = []);
+    const ranks = new Map(pickers.map(p => [p, []]));
     checkpoints.forEach(cp => {
       const seen = new Set();
       const ranked = rankRows(cp.standings);
@@ -771,10 +772,10 @@
       ranked.forEach((r, i) => {
         const k = groupSize[r.rank];
         const offset = k > 1 ? (i + 1 - r.rank) * Math.min(0.25, 0.8 / (k - 1)) : 0;
-        ranks[r.name].push(r.rank + offset);
+        ranks.get(r.name).push(r.rank + offset);
         seen.add(r.name);
       });
-      pickers.forEach(p => { if (!seen.has(p)) ranks[p].push(null); });
+      pickers.forEach(p => { if (!seen.has(p)) ranks.get(p).push(null); });
     });
     return ranks;
   }
@@ -824,15 +825,14 @@
     const rows = rankRows(getStandingsRows(currentSport));
     const prevRowsRaw = getPrevStandingsRows(currentSport);
 
-    const prevRankMap = {};
-    if (prevRowsRaw) rankRows(prevRowsRaw).forEach(r => { prevRankMap[r.name] = r.rank; });
+    const prevRankMap = new Map(prevRowsRaw ? rankRows(prevRowsRaw).map(r => [r.name, r.rank]) : []);
 
     document.getElementById('standings-title').textContent =
       currentSeason === 'all_time' ? 'All-Time Leaderboard' : `${currentSeason} Season Leaderboard`;
     document.getElementById('standings-badge').textContent = getBadgeText();
 
     document.getElementById('standings-body').innerHTML = rows.map(r => {
-      const prevRank = prevRankMap[r.name] ?? null;
+      const prevRank = prevRankMap.get(r.name) ?? null;
       const diff = prevRank !== null ? prevRank - r.rank : null;
       const heat = heatTag(r.p_value);
       const split = meterSplit(r.p_value);
@@ -939,7 +939,7 @@
       checkpoints, pickers,
       yTicks: pickers.map((_, i) => ({ value: i + 1, label: i + 1 })),
       yFrac: r => (r - 1) / (numPlayers - 1 || 1),
-      seriesFor: name => ranks[name],
+      seriesFor: name => ranks.get(name),
     });
   }
 

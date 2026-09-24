@@ -39,18 +39,18 @@ def test_implied_probability_rejects_invalid_odds(odds):
 def test_build_pick_infos_counts_pushes_as_non_wins():
     picks = pd.DataFrame(
         {
-            "Pick": ["Ann", "Ann", "Ann", "Bob"],
-            "Odds": [-110, 150, -200, 100],
-            "Win": ["Y", "N", "P", "Y"],
+            "Pick": ["Bob", "Ann", "Ann", "Ann"],
+            "Odds": [100, -110, 150, -200],
+            "Win": ["Y", "Y", "N", "P"],
         }
     )
-    ann, bob, cat = build_pick_infos(["Ann", "Bob", "Cat"], picks)
+    ann, bob = build_pick_infos(picks)
 
+    assert (ann.name, bob.name) == ("Ann", "Bob")
     assert (ann.num_wins, ann.num_losses, ann.num_pushes) == (1, 1, 1)
     # Every pick is in the distribution -- the push included -- even though only wins count.
     assert ann.odds == pytest.approx([110 / 210, 0.4, 200 / 300])
     assert (bob.num_wins, bob.odds) == (1, [0.5])
-    assert (cat.num_wins, cat.odds) == (0, [])
 
 
 PROBS = [implied_probability(o) for o in (-110, -110, 150, -200, 120, -150, 105, -300)]
