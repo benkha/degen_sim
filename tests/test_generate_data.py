@@ -117,6 +117,18 @@ def test_load_dated_picks_rejects_quote_closed_at_end_of_a_later_line(tmp_path):
         load_nfl(season_dir)
 
 
+def test_load_dated_picks_rejects_quote_closed_by_a_later_stray_quote(tmp_path):
+    # The record comes out with every field, so without the check Ben would silently get
+    # Bob's -110/Y and Ann's and Bob's picks would vanish.
+    season_dir = write_season(
+        tmp_path,
+        "2025",
+        nfl='1,Ben,"Chiefs -3,-110,Y\n1,Ann,Bills ML,-150,N\n2,Bob,Over 6.5",-110,Y\n2,Cat,Lions,-110,N\n',
+    )
+    with pytest.raises(SystemExit, match="line 2: a quoted field runs on to line 4 .* missing closing quote"):
+        load_nfl(season_dir)
+
+
 def test_load_dated_picks_rejects_non_utf8_file(tmp_path):
     season_dir = write_season(tmp_path, "2025")
     (season_dir / "parlay_tracker_nfl.csv").write_bytes(
@@ -142,9 +154,22 @@ def test_load_dated_picks_skips_leading_blank_lines_before_header(tmp_path):
         load_nfl(season_dir)
 
 
+def test_load_dated_picks_reports_the_real_line_of_a_bad_header(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_text('\n\nWeek,Pick,"Bet,Odds,Win\n')
+    with pytest.raises(SystemExit, match="the row starting on line 3 isn't valid CSV"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_strips_header_names(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_text(" Week,Pick ,Bet,Odds,Win \n1,Ann,Lions -3,-110,Y\n")
+    assert list(load_nfl(season_dir)["Win"]) == ["Y"]
+
+
 def test_load_dated_picks_rejects_duplicate_columns(tmp_path):
     season_dir = write_season(tmp_path, "2025")
-    (season_dir / "parlay_tracker_nfl.csv").write_text("Week,Pick,Bet,Odds,Win,Win,,\n1,Ann,Lions -3,-110,Y,N,,\n")
+    (season_dir / "parlay_tracker_nfl.csv").write_text("Week,Pick,Bet,Odds,Win,Win ,,\n1,Ann,Lions -3,-110,Y,N,,\n")
     with pytest.raises(SystemExit, match="line 1: duplicate column\\(s\\) in the header: Win$"):
         load_nfl(season_dir)
 
@@ -188,6 +213,16 @@ def test_load_season_config_rejects_unknown_keys(tmp_path):
     message = str(exc.value)
     assert "unknown key(s) 'cfbWeekOffset'" in message
     assert "\"nfl\" has unknown key(s) 'week_1_date'" in message
+
+
+def test_load_season_config_rejects_offset_that_misaligns_the_weeks(tmp_path):
+    season_dir = write_season(tmp_path, "2025", config={**CONFIG, "cfb_week_offset": 10})
+    with pytest.raises(SystemExit, match=r'"cfb_week_offset" of 10 pairs NFL week 1 \(2025-09-07\) with CFB week 11'):
+        generate_data.load_season_config(season_dir)
+
+    # Without both dates there's nothing to check it against yet.
+    config = {"nfl": {"week1_date": None}, "cfb": CONFIG["cfb"], "cfb_week_offset": 10}
+    assert generate_data.load_season_config(write_season(tmp_path, "2026", config=config)).cfb_week_offset == 10
 
 
 @pytest.mark.parametrize("section", [False, 0, [], None])
@@ -240,7 +275,7 @@ def test_build_data_all_time_stacks_earlier_seasons(tmp_path):
         tmp_path,
         "2026",
         nfl="1,Ann,Lions -3,-110,N\n1,Bob,Jets +3,120,Y\n",
-        config={**CONFIG, "nfl": {"week1_date": "2026-09-13"}},
+        config={**CONFIG, "nfl": {"week1_date": "2026-09-13"}, "cfb": {"week1_date": "2026-09-05"}},
     )
     write_season(tmp_path, "2027", config={"nfl": {"week1_date": None}, "cfb": {"week1_date": None}})
 
@@ -278,7 +313,7 @@ def test_build_data_rejects_names_differing_only_in_case_or_spacing(tmp_path):
         tmp_path,
         "2026",
         cfb="1,Ann,Bama -7,-110,Y\n1,ben,Bama -7,-110,N\n1,Ann Lee,Bama -7,-110,N\n",
-        config={**CONFIG, "cfb": {"week1_date": "2026-09-05"}},
+        config={**CONFIG, "nfl": {"week1_date": "2026-09-13"}, "cfb": {"week1_date": "2026-09-05"}},
     )
     with pytest.raises(SystemExit, match="spelled more than one way") as exc:
         generate_data.build_data(tmp_path)

@@ -27,8 +27,9 @@ run with its file and line number, rather than silently skewing the results. So 
 file that isn't valid CSV (e.g. a quote that's never closed, which would otherwise swallow
 the rows after it) or isn't UTF-8, and picker names that differ only in capitalization or
 spacing (e.g. "Ben" and "ben"), which would otherwise split one person into two. season.json
-is validated too (dates as YYYY-MM-DD, cfb_week_offset a whole number, no unknown keys, so
-a misspelled key can't silently fall back to a default). Seasons must also run in order:
+is validated too (dates as YYYY-MM-DD, cfb_week_offset a whole number that pairs NFL week 1
+with the CFB week in the same calendar week, no unknown keys, so a misspelled key can't
+silently fall back to a default). Seasons must also run in order:
 a week1_date that makes one season's checkpoints overlap an earlier season's aborts the
 run too, since the All-Time timeline would otherwise go back in time.
 
@@ -127,6 +128,17 @@ def load_season_config(season_dir: Path) -> SeasonConfig:
     # bool is a subclass of int, but `true` is certainly a mistake here.
     if not isinstance(cfb_week_offset, int) or isinstance(cfb_week_offset, bool):
         problems.append(f'"cfb_week_offset" must be a whole number (got {cfb_week_offset!r})')
+    elif nfl_week1_date and cfb_week1_date:
+        # Combined pairs NFL week 1 with CFB week 1 + cfb_week_offset, so those should fall
+        # in the same calendar week. A typo (e.g. 10 for 1) would otherwise silently pair
+        # the wrong weeks and push Combined's checkpoint dates months ahead.
+        paired_cfb_date = week_date(cfb_week1_date, 1 + cfb_week_offset)
+        if abs((paired_cfb_date - nfl_week1_date).days) >= 7:
+            problems.append(
+                f'"cfb_week_offset" of {cfb_week_offset} pairs NFL week 1 ({nfl_week1_date}) with CFB week '
+                f"{1 + cfb_week_offset} ({paired_cfb_date}), which isn't the same week -- check the offset and "
+                f"both week1_dates"
+            )
     if problems:
         raise SystemExit(f"{config_path} is invalid:\n" + "\n".join(f"  {p}" for p in problems))
     return SeasonConfig(nfl_week1_date, cfb_week1_date, cfb_week_offset)
@@ -152,11 +164,13 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
     pandas' behavior of silently shifting its columns.
 
     A quote that's never closed is an error too, not just a long field: csv would
-    otherwise read every line after it into that one field, leaving the record short
-    of its Odds/Win and so skipped as "not graded yet" -- silently dropping all those
-    picks. strict mode catches one left open at the end of the file (or closed
-    mid-field by a later quote); a record that spans lines but comes up short of
-    fields catches one closed at the end of a later line.
+    otherwise read the lines after it into that one field until some later quote
+    happens to close it, silently dropping those picks -- and, if the record still
+    ends up with every field, crediting the swallowed row's Odds/Win to this one.
+    strict mode catches a quote left open to the end of the file (or closed mid-field
+    by a later quote). Otherwise, a field spanning lines that contains a comma is
+    flagged: swallowed text always has one (the rest of the row, or a whole later
+    row), while a deliberate line break in a cell (e.g. "Lions<newline>-3") rarely does.
 
     The header is the first non-blank line; an empty (or all-blank) file gives a frame
     with no columns at all.
@@ -171,21 +185,27 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
         ) from None
 
     reader = csv.reader(io.StringIO(text, newline=""), strict=True)
-    rows, lines, problems = [], [], []
+    header, rows, lines, problems = [], [], [], []
     start = 1  # the line the record being read starts on
     try:
-        header = next((record for record in reader if any(v.strip() for v in record)), [])
-        dupes = sorted({c for c in header if c.strip() and header.count(c) > 1})
+        for record in reader:
+            if any(v.strip() for v in record):
+                # Spreadsheet exports often pad names (e.g. "Win "), which would otherwise
+                # read as a missing Win column, or slip past the duplicate check below.
+                header = [c.strip() for c in record]
+                break
+            start = reader.line_num + 1
+        dupes = sorted({c for c in header if c and header.count(c) > 1})
         if dupes:
-            raise SystemExit(f"{path} line {reader.line_num}: duplicate column(s) in the header: {', '.join(dupes)}")
+            raise SystemExit(f"{path} line {start}: duplicate column(s) in the header: {', '.join(dupes)}")
         start = reader.line_num + 1
         for record in reader:
             if any(v.strip() for v in record[len(header) :]):
                 problems.append(f"  line {start}: has {len(record)} fields, expected {len(header)}")
-            elif reader.line_num > start and len(record) < len(header):
+            elif any("\n" in v and "," in v for v in record):
                 problems.append(
-                    f"  line {start}: a quoted field runs on to line {reader.line_num} and leaves the row short "
-                    f"of fields -- probably a missing closing quote"
+                    f"  line {start}: a quoted field runs on to line {reader.line_num} and has a comma in it -- "
+                    f"probably a missing closing quote (if the line break is meant to be there, remove the comma)"
                 )
             if any(v.strip() for v in record):
                 rows.append((record + [""] * len(header))[: len(header)])

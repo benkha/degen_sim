@@ -55,6 +55,13 @@ def test_build_pick_infos_counts_pushes_as_non_wins():
     assert (bob.num_wins, bob.odds) == (1, [0.5])
 
 
+@pytest.mark.parametrize("result", ["y", "W", "", None])
+def test_build_pick_infos_rejects_unknown_results(result):
+    picks = pd.DataFrame({"Pick": ["Ann"], "Odds": [-110], "Win": [result]})
+    with pytest.raises(ValueError, match="Invalid result"):
+        build_pick_infos(picks)
+
+
 PROBS = [implied_probability(o) for o in (-110, -110, 150, -200, 120, -150, 105, -300)]
 
 

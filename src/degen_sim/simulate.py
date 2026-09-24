@@ -77,13 +77,16 @@ def build_pick_infos(picks: pd.DataFrame) -> list[PickInfo]:
     infos: dict[str, PickInfo] = {}
     for name, odds, result in zip(picks["Pick"], picks["Odds"], picks["Win"]):
         info = infos.setdefault(name, PickInfo(name, 0, 0, 0, []))
-        info.odds.append(implied_probability(odds))
+        # Anything else would still land in the distribution but count as a silent Not-Win.
         if result == "Y":
             info.num_wins += 1
         elif result == "N":
             info.num_losses += 1
         elif result == "P":
             info.num_pushes += 1
+        else:
+            raise ValueError(f"Invalid result {result!r} for {name!r}: must be 'Y', 'N' or 'P'")
+        info.odds.append(implied_probability(odds))
     return [infos[name] for name in sorted(infos)]
 
 
