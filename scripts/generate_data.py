@@ -28,7 +28,7 @@ file that isn't valid CSV (e.g. a quote that's never closed, which would otherwi
 the rows after it) or isn't UTF-8, and picker names that differ only in capitalization or
 spacing (e.g. "Ben" and "ben"), which would otherwise split one person into two. season.json
 is validated too (dates as YYYY-MM-DD, cfb_week_offset a whole number that pairs NFL week 1
-with the CFB week in the same calendar week, no unknown keys, so a misspelled key can't
+with the CFB week within 3 days of it, no unknown keys, so a misspelled key can't
 silently fall back to a default). Seasons must also run in order:
 a week1_date that makes one season's checkpoints overlap an earlier season's aborts the
 run too, since the All-Time timeline would otherwise go back in time.
@@ -51,7 +51,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from degen_sim.simulate import build_pick_infos, compute_standings, is_valid_american_odds
+from degen_sim.simulate import VALID_RESULTS, build_pick_infos, compute_standings, is_valid_american_odds
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
@@ -59,7 +59,6 @@ OUTPUT_PATH = ROOT_DIR / "data.json"
 
 SPORTS = ("combined", "nfl", "cfb")
 REQUIRED_COLUMNS = ["Week", "Pick", "Odds", "Win"]
-VALID_RESULTS = {"Y", "N", "P"}
 # Both sports number their weeks from 1 -- Week 0 is rejected on purpose (see the module
 # docstring). No season runs past ~22 weeks (NFL's 18 plus playoffs), so anything beyond
 # this is a typo -- caught here rather than becoming a checkpoint months in the future (or
@@ -128,16 +127,22 @@ def load_season_config(season_dir: Path) -> SeasonConfig:
     # bool is a subclass of int, but `true` is certainly a mistake here.
     if not isinstance(cfb_week_offset, int) or isinstance(cfb_week_offset, bool):
         problems.append(f'"cfb_week_offset" must be a whole number (got {cfb_week_offset!r})')
+    elif abs(cfb_week_offset) > MAX_WEEK:
+        # More than a whole season is certainly a typo (and a huge one would overflow the
+        # date math below).
+        problems.append(f'"cfb_week_offset" must be between -{MAX_WEEK} and {MAX_WEEK} (got {cfb_week_offset})')
     elif nfl_week1_date and cfb_week1_date:
         # Combined pairs NFL week 1 with CFB week 1 + cfb_week_offset, so those should fall
-        # in the same calendar week. A typo (e.g. 10 for 1) would otherwise silently pair
-        # the wrong weeks and push Combined's checkpoint dates months ahead.
+        # in the same calendar week. A typo (e.g. 10 for 1, or 2 for 1) would otherwise
+        # silently pair the wrong weeks. Within 3 days, rather than 7, so exactly one offset
+        # fits: e.g. NFL on Sunday 9/7 pairs with CFB on Saturday 9/6, not Saturday 9/13.
         paired_cfb_date = week_date(cfb_week1_date, 1 + cfb_week_offset)
-        if abs((paired_cfb_date - nfl_week1_date).days) >= 7:
+        if abs((paired_cfb_date - nfl_week1_date).days) > 3:
+            best = round((nfl_week1_date - cfb_week1_date).days / 7)
             problems.append(
                 f'"cfb_week_offset" of {cfb_week_offset} pairs NFL week 1 ({nfl_week1_date}) with CFB week '
-                f"{1 + cfb_week_offset} ({paired_cfb_date}), which isn't the same week -- check the offset and "
-                f"both week1_dates"
+                f"{1 + cfb_week_offset} ({paired_cfb_date}), which isn't the same week -- with these "
+                f"week1_dates it should be {best} (or check the dates)"
             )
     if problems:
         raise SystemExit(f"{config_path} is invalid:\n" + "\n".join(f"  {p}" for p in problems))
@@ -161,7 +166,9 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
     literal text -- pandas would turn a picker named "NA"/"None" or a Win of "N/A" into
     missing values -- and (b) error line numbers stay right even when a quoted field
     spans several lines. A record with extra non-blank fields is an error rather than
-    pandas' behavior of silently shifting its columns.
+    pandas' behavior of silently shifting its columns, and so is one with too few: a
+    graded row missing a field (e.g. its Bet) would otherwise have its result slide into
+    the wrong column and be skipped as not graded yet.
 
     A quote that's never closed is an error too, not just a long field: csv would
     otherwise read the lines after it into that one field until some later quote
@@ -179,7 +186,9 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
     try:
         text = raw.decode("utf-8-sig")
     except UnicodeDecodeError as e:
-        line = raw[: e.start].count(b"\n") + 1
+        before = raw[: e.start]
+        # Counts \r\n, \n and (e.g. from Excel's "CSV (Macintosh)") bare \r line breaks.
+        line = before.count(b"\n") + before.count(b"\r") - before.count(b"\r\n") + 1
         raise SystemExit(
             f"{path} line {line}: isn't valid UTF-8 ({e.reason}) -- re-save/export the file as UTF-8 CSV."
         ) from None
@@ -200,15 +209,17 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
             raise SystemExit(f"{path} line {start}: duplicate column(s) in the header: {', '.join(dupes)}")
         start = reader.line_num + 1
         for record in reader:
-            if any(v.strip() for v in record[len(header) :]):
-                problems.append(f"  line {start}: has {len(record)} fields, expected {len(header)}")
-            elif any("\n" in v and "," in v for v in record):
+            blank = not any(v.strip() for v in record)
+            # Checked first: a missing closing quote usually leaves the wrong field count too.
+            if any(("\n" in v or "\r" in v) and "," in v for v in record):
                 problems.append(
                     f"  line {start}: a quoted field runs on to line {reader.line_num} and has a comma in it -- "
                     f"probably a missing closing quote (if the line break is meant to be there, remove the comma)"
                 )
-            if any(v.strip() for v in record):
-                rows.append((record + [""] * len(header))[: len(header)])
+            elif any(v.strip() for v in record[len(header) :]) or (len(record) < len(header) and not blank):
+                problems.append(f"  line {start}: has {len(record)} fields, expected {len(header)}")
+            if not blank:
+                rows.append(record[: len(header)])
                 lines.append(start)
             start = reader.line_num + 1
     except csv.Error as e:

@@ -100,6 +100,18 @@ def test_load_dated_picks_rejects_rows_with_extra_fields(tmp_path):
     assert "line 3" not in message  # a trailing empty field is harmless
 
 
+def test_load_dated_picks_rejects_rows_with_missing_fields(tmp_path):
+    # Ann's row is missing its Bet, so padding it would put N in Odds and leave Win blank,
+    # silently skipping her loss as not graded yet.
+    season_dir = write_season(tmp_path, "2025", nfl="1,Ann,-110,N\n1,Bob,Jets +3,120,N\n \n,,\n")
+    with pytest.raises(SystemExit) as exc:
+        load_nfl(season_dir)
+    message = str(exc.value)
+    assert "line 2: has 4 fields, expected 5" in message
+    assert "line 3" not in message
+    assert "line 4" not in message and "line 5" not in message  # blank lines are still just skipped
+
+
 def test_load_dated_picks_rejects_quote_left_open_to_end_of_file(tmp_path):
     # Without this, every row after the stray quote would become one ungraded pick and vanish.
     season_dir = write_season(
@@ -126,6 +138,26 @@ def test_load_dated_picks_rejects_quote_closed_by_a_later_stray_quote(tmp_path):
         nfl='1,Ben,"Chiefs -3,-110,Y\n1,Ann,Bills ML,-150,N\n2,Bob,Over 6.5",-110,Y\n2,Cat,Lions,-110,N\n',
     )
     with pytest.raises(SystemExit, match="line 2: a quoted field runs on to line 4 .* missing closing quote"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_rejects_unclosed_quote_with_cr_line_endings(tmp_path):
+    # Excel's "CSV (Macintosh)" export ends lines with a bare \r.
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_text(
+        'Week,Pick,Bet,Odds,Win\r1,Ben,"Oregon -24.5,-115,N\r2,Bob,Jets +3,120,Y"\r2,Cat,Bills -7,-150,N\r',
+        newline="",
+    )
+    with pytest.raises(SystemExit, match="line 2: a quoted field runs on to line 3 .* missing closing quote"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_reports_non_utf8_line_with_cr_line_endings(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_bytes(
+        "Week,Pick,Bet,Odds,Win\r1,Ann,Lions -3,-110,Y\r1,Jos\u00e9,Jets +3,120,N\r".encode("cp1252")
+    )
+    with pytest.raises(SystemExit, match="line 3: isn't valid UTF-8"):
         load_nfl(season_dir)
 
 
@@ -220,9 +252,23 @@ def test_load_season_config_rejects_offset_that_misaligns_the_weeks(tmp_path):
     with pytest.raises(SystemExit, match=r'"cfb_week_offset" of 10 pairs NFL week 1 \(2025-09-07\) with CFB week 11'):
         generate_data.load_season_config(season_dir)
 
+    # Off by one is caught too: CFB week 3 (9/13) is within 7 days of NFL week 1 (9/7),
+    # but CFB week 2 (9/6) is the one in the same week.
+    season_dir = write_season(tmp_path, "2024", config={**CONFIG, "cfb_week_offset": 2})
+    with pytest.raises(SystemExit, match=r"with CFB week 3 \(2025-09-13\).* it should be 1"):
+        generate_data.load_season_config(season_dir)
+
     # Without both dates there's nothing to check it against yet.
     config = {"nfl": {"week1_date": None}, "cfb": CONFIG["cfb"], "cfb_week_offset": 10}
     assert generate_data.load_season_config(write_season(tmp_path, "2026", config=config)).cfb_week_offset == 10
+
+
+@pytest.mark.parametrize("offset", [26, -26, 100_000_000])
+def test_load_season_config_rejects_out_of_range_offset(tmp_path, offset):
+    # A huge offset used to crash the date math with an OverflowError traceback.
+    season_dir = write_season(tmp_path, "2025", config={**CONFIG, "cfb_week_offset": offset})
+    with pytest.raises(SystemExit, match=f'"cfb_week_offset" must be between -25 and 25 \\(got {offset}\\)'):
+        generate_data.load_season_config(season_dir)
 
 
 @pytest.mark.parametrize("section", [False, 0, [], None])
