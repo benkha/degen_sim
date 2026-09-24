@@ -676,19 +676,16 @@
     return latest ? `Through ${latest.label}` : 'No data yet';
   }
 
-  // Sorts standings best-first (lowest p-value) and gives each row a shared
-  // "competition" rank (1, 2, 2, 4): pickers with identical p-values -- e.g.
-  // several who each went 1-0 at the same odds in Week 1 -- tie instead of
-  // being split into distinct ranks by name order. `tied` marks rows that share their rank.
+  // Standings arrive from generate_data.py already sorted best-first, each with a
+  // shared "competition" rank (1, 2, 2, 4). Ties are decided there on each picker's
+  // exact (rational) p-value -- e.g. several who each went 1-0 at the same odds in
+  // Week 1 -- so never re-rank or compare p_value floats here: two different records
+  // can round to the same float. This only adds how many rows share each rank
+  // (`groupSize`) and `tied` (groupSize > 1).
   function rankRows(standings) {
-    const rows = [...standings].sort((a, b) => a.p_value - b.p_value);
-    const counts = {};
-    rows.forEach(r => { counts[r.p_value] = (counts[r.p_value] || 0) + 1; });
-    let rank = 0;
-    return rows.map((r, i) => {
-      if (i === 0 || r.p_value !== rows[i - 1].p_value) rank = i + 1;
-      return { ...r, rank, tied: counts[r.p_value] > 1 };
-    });
+    const groupSize = {};
+    standings.forEach(r => { groupSize[r.rank] = (groupSize[r.rank] || 0) + 1; });
+    return standings.map(r => ({ ...r, groupSize: groupSize[r.rank], tied: groupSize[r.rank] > 1 }));
   }
 
   // Name of whoever's ranked #1, or of both if two are tied for it. Returns
@@ -763,14 +760,12 @@
     // returns Map name -> [rank per checkpoint], ranks 1 = best (lowest p_value).
     // Tied pickers share a rank, so they're fanned out just below it (by at most
     // 0.8, never reaching the next rank) rather than drawn exactly on top of each other.
+    // Rows are sorted, so a tied row's place within its group is i + 1 - rank.
     const ranks = new Map(pickers.map(p => [p, []]));
     checkpoints.forEach(cp => {
       const seen = new Set();
-      const ranked = rankRows(cp.standings);
-      const groupSize = {};
-      ranked.forEach(r => { groupSize[r.rank] = (groupSize[r.rank] || 0) + 1; });
-      ranked.forEach((r, i) => {
-        const k = groupSize[r.rank];
+      rankRows(cp.standings).forEach((r, i) => {
+        const k = r.groupSize;
         const offset = k > 1 ? (i + 1 - r.rank) * Math.min(0.25, 0.8 / (k - 1)) : 0;
         ranks.get(r.name).push(r.rank + offset);
         seen.add(r.name);

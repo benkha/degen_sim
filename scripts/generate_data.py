@@ -23,10 +23,14 @@ If CFB's schedule has an official "Week 0", log it as Week 1 and set cfb.week1_d
 
 Resolved picks (a non-blank Win) are validated on load -- Win must be Y/N/P, Odds must be
 valid American odds, Week a whole number from 1 to MAX_WEEK -- and any bad row aborts the
-run with its file and line number, rather than silently skewing the results. season.json
-is validated too (dates as YYYY-MM-DD, cfb_week_offset a whole number). Seasons must also
-run in order: a week1_date that makes one season's checkpoints overlap an earlier season's
-aborts the run too, since the All-Time timeline would otherwise go back in time.
+run with its file and line number, rather than silently skewing the results. So does a
+file that isn't valid CSV (e.g. a quote that's never closed, which would otherwise swallow
+the rows after it) or isn't UTF-8, and picker names that differ only in capitalization or
+spacing (e.g. "Ben" and "ben"), which would otherwise split one person into two. season.json
+is validated too (dates as YYYY-MM-DD, cfb_week_offset a whole number, no unknown keys, so
+a misspelled key can't silently fall back to a default). Seasons must also run in order:
+a week1_date that makes one season's checkpoints overlap an earlier season's aborts the
+run too, since the All-Time timeline would otherwise go back in time.
 
 This always rebuilds data.json from scratch by reading every data/<year>/ directory --
 there is no incremental/upsert mode. Run it any time after updating a season's CSVs:
@@ -36,8 +40,10 @@ there is no incremental/upsert mode. Run it any time after updating a season's C
 
 import argparse
 import csv
+import io
 import json
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -58,10 +64,13 @@ VALID_RESULTS = {"Y", "N", "P"}
 # this is a typo -- caught here rather than becoming a checkpoint months in the future (or
 # overflowing the date math entirely).
 MAX_WEEK = 25
-EMPTY_PICKS = pd.DataFrame(columns=["Week", "Pick", "Odds", "Win", "Date"])
 
 # A checkpoint's cutoff date plus every pick that counts toward it.
 Cut = tuple[date, pd.DataFrame]
+
+
+def empty_picks() -> pd.DataFrame:
+    return pd.DataFrame(columns=["Week", "Pick", "Odds", "Win", "Date"])
 
 
 CONFIG_EXAMPLE = '{"nfl": {"week1_date": "YYYY-MM-DD"}, "cfb": {"week1_date": "YYYY-MM-DD"}, "cfb_week_offset": 1}'
@@ -75,10 +84,13 @@ class SeasonConfig:
 
 
 def parse_week1_date(config: dict, sport: str, problems: list[str]) -> date | None:
-    section = config.get(sport) or {}
+    section = config.get(sport, {})
     if not isinstance(section, dict):
         problems.append(f'"{sport}" must be an object like {{"week1_date": "YYYY-MM-DD"}} (got {section!r})')
         return None
+    unknown = sorted(set(section) - {"week1_date"})
+    if unknown:
+        problems.append(f'"{sport}" has unknown key(s) {", ".join(map(repr, unknown))} (expected "week1_date")')
     raw = section.get("week1_date")
     if raw in (None, ""):
         return None
@@ -103,7 +115,12 @@ def load_season_config(season_dir: Path) -> SeasonConfig:
     if not isinstance(config, dict):
         raise SystemExit(f"{config_path} must be a JSON object, e.g.:\n  {CONFIG_EXAMPLE}")
 
+    # A misspelled key (e.g. "cfbWeekOffset") would otherwise be ignored and the setting
+    # would silently fall back to its default.
     problems = []
+    unknown = sorted(set(config) - {"nfl", "cfb", "cfb_week_offset"})
+    if unknown:
+        problems.append(f'unknown key(s) {", ".join(map(repr, unknown))} (expected "nfl", "cfb", "cfb_week_offset")')
     nfl_week1_date = parse_week1_date(config, "nfl", problems)
     cfb_week1_date = parse_week1_date(config, "cfb", problems)
     cfb_week_offset = config.get("cfb_week_offset", 0)
@@ -122,7 +139,7 @@ def week_date(week1_date: date, week: int) -> date:
 def concat(frames: list[pd.DataFrame]) -> pd.DataFrame:
     # Skipping empty frames avoids pandas' FutureWarning about concatenating them.
     frames = [f for f in frames if len(f)]
-    return pd.concat(frames, ignore_index=True) if frames else EMPTY_PICKS.copy()
+    return pd.concat(frames, ignore_index=True) if frames else empty_picks()
 
 
 def read_csv_rows(path: Path) -> pd.DataFrame:
@@ -134,37 +151,64 @@ def read_csv_rows(path: Path) -> pd.DataFrame:
     spans several lines. A record with extra non-blank fields is an error rather than
     pandas' behavior of silently shifting its columns.
 
+    A quote that's never closed is an error too, not just a long field: csv would
+    otherwise read every line after it into that one field, leaving the record short
+    of its Odds/Win and so skipped as "not graded yet" -- silently dropping all those
+    picks. strict mode catches one left open at the end of the file (or closed
+    mid-field by a later quote); a record that spans lines but comes up short of
+    fields catches one closed at the end of a later line.
+
     The header is the first non-blank line; an empty (or all-blank) file gives a frame
     with no columns at all.
     """
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        reader = csv.reader(f)
+    raw = path.read_bytes()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as e:
+        line = raw[: e.start].count(b"\n") + 1
+        raise SystemExit(
+            f"{path} line {line}: isn't valid UTF-8 ({e.reason}) -- re-save/export the file as UTF-8 CSV."
+        ) from None
+
+    reader = csv.reader(io.StringIO(text, newline=""), strict=True)
+    rows, lines, problems = [], [], []
+    start = 1  # the line the record being read starts on
+    try:
         header = next((record for record in reader if any(v.strip() for v in record)), [])
         dupes = sorted({c for c in header if c.strip() and header.count(c) > 1})
         if dupes:
             raise SystemExit(f"{path} line {reader.line_num}: duplicate column(s) in the header: {', '.join(dupes)}")
-        rows, lines, extra = [], [], []
         start = reader.line_num + 1
         for record in reader:
             if any(v.strip() for v in record[len(header) :]):
-                extra.append(f"  line {start}: has {len(record)} fields, expected {len(header)}")
+                problems.append(f"  line {start}: has {len(record)} fields, expected {len(header)}")
+            elif reader.line_num > start and len(record) < len(header):
+                problems.append(
+                    f"  line {start}: a quoted field runs on to line {reader.line_num} and leaves the row short "
+                    f"of fields -- probably a missing closing quote"
+                )
             if any(v.strip() for v in record):
                 rows.append((record + [""] * len(header))[: len(header)])
                 lines.append(start)
             start = reader.line_num + 1
-    if extra:
-        raise SystemExit(f"{path} has rows with too many fields:\n" + "\n".join(extra))
+    except csv.Error as e:
+        raise SystemExit(
+            f"{path}: the row starting on line {start} isn't valid CSV ({e} on line {reader.line_num}) -- "
+            f"probably a missing closing quote"
+        ) from None
+    if problems:
+        raise SystemExit(f"{path} has malformed rows:\n" + "\n".join(problems))
     return pd.DataFrame(rows, columns=header, index=lines, dtype="object")
 
 
 def load_dated_picks(season_dir: Path, filename: str, week1_date: date | None) -> pd.DataFrame:
     path = season_dir / filename
     if not path.exists():
-        return EMPTY_PICKS.copy()
+        return empty_picks()
 
     df = read_csv_rows(path)
     if df.columns.empty:  # an empty file, e.g. one just created for a new season
-        return EMPTY_PICKS.copy()
+        return empty_picks()
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise SystemExit(f"{path} is missing column(s): {', '.join(missing)}")
@@ -194,9 +238,8 @@ def load_dated_picks(season_dir: Path, filename: str, week1_date: date | None) -
     df["Win"] = result
     df["Odds"] = odds
     df["Week"] = week.astype(int)
-    if df.empty:
-        df["Date"] = pd.Series(dtype="object")
-        return df
+    if df.empty:  # nothing graded yet
+        return empty_picks()
 
     if not week1_date:
         raise SystemExit(
@@ -249,6 +292,12 @@ def load_season(season_dir: Path) -> dict:
     # relies on this to stack earlier seasons under the All-Time checkpoints).
     return {
         "pickers": sorted(set(nfl_picks["Pick"]) | set(cfb_picks["Pick"])),
+        # Where each name is first spelled that way (the index is the CSV line number).
+        "name_sources": {
+            f"{season_dir / filename} line {line}": name
+            for filename, picks in (("parlay_tracker_nfl.csv", nfl_picks), ("parlay_tracker_cfb.csv", cfb_picks))
+            for line, name in picks["Pick"].drop_duplicates().items()
+        },
         "cuts": {
             "combined": combined_cuts(
                 nfl_picks, cfb_picks, config.nfl_week1_date, config.cfb_week1_date, config.cfb_week_offset
@@ -270,6 +319,21 @@ def discover_seasons(data_dir: Path) -> list[str]:
     return sorted(p.name for p in data_dir.iterdir() if p.is_dir() and re.fullmatch(r"\d{4}", p.name))
 
 
+def check_name_spellings(name_sources: dict[str, str]) -> None:
+    """Abort if any picker's name is spelled more than one way (differing only in
+    capitalization or spacing), e.g. "Ben" in one row and "ben" in another -- that would
+    otherwise quietly split one person's record across two pickers."""
+    spellings: dict[str, dict[str, str]] = defaultdict(dict)
+    for source, name in name_sources.items():
+        spellings[" ".join(name.split()).casefold()].setdefault(name, source)
+    clashes = [variants for variants in spellings.values() if len(variants) > 1]
+    if clashes:
+        details = "\n".join(
+            "  " + "; ".join(f"{name!r} ({source})" for name, source in variants.items()) for variants in clashes
+        )
+        raise SystemExit(f"Picker names spelled more than one way -- make each person's name match exactly:\n{details}")
+
+
 def standings(picks: pd.DataFrame) -> list[dict]:
     return compute_standings(build_pick_infos(picks))
 
@@ -280,11 +344,14 @@ def checkpoint(cutoff: date, rows: list[dict]) -> dict:
 
 def build_data(data_dir: Path) -> dict:
     seasons = {s: load_season(data_dir / s) for s in discover_seasons(data_dir)}
+    check_name_spellings(
+        {source: name for season in seasons.values() for source, name in season["name_sources"].items()}
+    )
 
     seasons_data = {}
     all_time_weeks = {sport: [] for sport in SPORTS}
     last_cutoff: dict[str, date] = {}
-    prior_picks = {sport: EMPTY_PICKS for sport in SPORTS}  # every earlier season's picks
+    prior_picks = {sport: empty_picks() for sport in SPORTS}  # every earlier season's picks
     for s, season in seasons.items():  # oldest first
         weeks = {}
         for sport in SPORTS:

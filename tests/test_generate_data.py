@@ -100,6 +100,32 @@ def test_load_dated_picks_rejects_rows_with_extra_fields(tmp_path):
     assert "line 3" not in message  # a trailing empty field is harmless
 
 
+def test_load_dated_picks_rejects_quote_left_open_to_end_of_file(tmp_path):
+    # Without this, every row after the stray quote would become one ungraded pick and vanish.
+    season_dir = write_season(
+        tmp_path, "2025", nfl='1,Ann,Lions -3,-110,Y\n1,Ben,"Oregon -24.5,-115,N\n2,Bob,Jets +3,120,Y\n'
+    )
+    with pytest.raises(SystemExit, match="the row starting on line 3 isn't valid CSV"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_rejects_quote_closed_at_end_of_a_later_line(tmp_path):
+    season_dir = write_season(
+        tmp_path, "2025", nfl='1,Ben,"Oregon -24.5,-115,N\n2,Bob,Jets +3,120,Y"\n2,Cat,Bills -7,-150,N\n'
+    )
+    with pytest.raises(SystemExit, match="line 2: a quoted field runs on to line 3 .* missing closing quote"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_rejects_non_utf8_file(tmp_path):
+    season_dir = write_season(tmp_path, "2025")
+    (season_dir / "parlay_tracker_nfl.csv").write_bytes(
+        (HEADER + "1,Ann,Lions -3,-110,Y\n1,Jos\u00e9,Jets +3,120,N\n").encode("cp1252")
+    )
+    with pytest.raises(SystemExit, match="line 3: isn't valid UTF-8"):
+        load_nfl(season_dir)
+
+
 def test_load_dated_picks_treats_empty_file_as_no_picks(tmp_path):
     season_dir = write_season(tmp_path, "2025")
     (season_dir / "parlay_tracker_nfl.csv").write_text("")
@@ -150,6 +176,25 @@ def test_load_season_config_reports_every_bad_value(tmp_path):
     assert "\"nfl.week1_date\" must be a YYYY-MM-DD date or null (got '9/7/2025')" in message
     assert '"cfb" must be an object' in message
     assert "\"cfb_week_offset\" must be a whole number (got '1')" in message
+
+
+def test_load_season_config_rejects_unknown_keys(tmp_path):
+    # A misspelled cfb_week_offset must not silently fall back to 0.
+    season_dir = write_season(
+        tmp_path, "2025", config={**CONFIG, "cfbWeekOffset": 1, "nfl": {"week1_date": None, "week_1_date": "x"}}
+    )
+    with pytest.raises(SystemExit) as exc:
+        generate_data.load_season_config(season_dir)
+    message = str(exc.value)
+    assert "unknown key(s) 'cfbWeekOffset'" in message
+    assert "\"nfl\" has unknown key(s) 'week_1_date'" in message
+
+
+@pytest.mark.parametrize("section", [False, 0, [], None])
+def test_load_season_config_rejects_non_object_sport_sections(tmp_path, section):
+    season_dir = write_season(tmp_path, "2025", config={**CONFIG, "nfl": section})
+    with pytest.raises(SystemExit, match='"nfl" must be an object'):
+        generate_data.load_season_config(season_dir)
 
 
 def test_load_season_config_rejects_malformed_json(tmp_path):
@@ -225,3 +270,26 @@ def test_build_data_rejects_overlapping_seasons(tmp_path):
     with pytest.raises(SystemExit, match="go back in time") as exc:
         generate_data.build_data(tmp_path)
     assert str(tmp_path / "2026" / "season.json") in str(exc.value)
+
+
+def test_build_data_rejects_names_differing_only_in_case_or_spacing(tmp_path):
+    write_season(tmp_path, "2025", nfl="1,Ben,Lions -3,-110,Y\n1,Ann  Lee,Lions -3,-110,Y\n")
+    write_season(
+        tmp_path,
+        "2026",
+        cfb="1,Ann,Bama -7,-110,Y\n1,ben,Bama -7,-110,N\n1,Ann Lee,Bama -7,-110,N\n",
+        config={**CONFIG, "cfb": {"week1_date": "2026-09-05"}},
+    )
+    with pytest.raises(SystemExit, match="spelled more than one way") as exc:
+        generate_data.build_data(tmp_path)
+    message = str(exc.value)
+    assert f"'Ben' ({tmp_path / '2025' / 'parlay_tracker_nfl.csv'} line 2)" in message
+    assert f"'ben' ({tmp_path / '2026' / 'parlay_tracker_cfb.csv'} line 3)" in message
+    assert "'Ann  Lee'" in message and "'Ann Lee'" in message
+    assert "'Ann'" not in message
+
+
+def test_build_data_emits_ranks_with_ties(tmp_path):
+    write_season(tmp_path, "2025", nfl="1,Cat,Lions -3,-105,Y\n1,Ann,Jets +3,-105,Y\n1,Bob,Bills -7,-110,N\n")
+    rows = generate_data.build_data(tmp_path)["seasons"]["2025"]["weeks"]["nfl"][0]["standings"]
+    assert [(r["name"], r["rank"]) for r in rows] == [("Ann", 1), ("Cat", 1), ("Bob", 3)]
