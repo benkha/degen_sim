@@ -60,6 +60,11 @@ def test_win_distribution_matches_brute_force_enumeration():
     assert win_distribution(PROBS).tolist() == pytest.approx(brute_force_distribution(PROBS), abs=1e-12)
 
 
+def test_win_distribution_ignores_pick_order():
+    # Bit-identical, not just approximately equal: the site detects ties by exact equality.
+    assert win_distribution(PROBS).tolist() == win_distribution(PROBS[::-1]).tolist()
+
+
 def test_win_distribution_of_no_picks_is_certain_zero_wins():
     assert win_distribution([]).tolist() == [1.0]
 

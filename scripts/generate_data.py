@@ -18,7 +18,7 @@ ahead of it (e.g. CFB week 2 with NFL week 1) into one checkpoint, dated by whic
 the two week's dates is later.
 
 Resolved picks (a non-blank Win) are validated on load -- Win must be Y/N/P, Odds must be
-valid American odds, Week a whole number -- and any bad row aborts the run with its file
+valid American odds, Week a whole number from 1 to MAX_WEEK -- and any bad row aborts the run with its file
 and line number, rather than silently skewing the results. Seasons must also run in
 order: a week1_date that makes one season's checkpoints overlap an earlier season's
 aborts the run too, since the All-Time timeline would otherwise go back in time.
@@ -38,7 +38,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from degen_sim.simulate import build_pick_infos, compute_standings, is_valid_american_odds
+from degen_sim.simulate import PickInfo, build_pick_infos, compute_standings, is_valid_american_odds
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
@@ -47,6 +47,10 @@ OUTPUT_PATH = ROOT_DIR / "data.json"
 SPORTS = ("combined", "nfl", "cfb")
 REQUIRED_COLUMNS = ["Week", "Pick", "Odds", "Win"]
 VALID_RESULTS = {"Y", "N", "P"}
+# Both sports number their weeks from 1. No season runs past ~22 weeks (NFL's 18 plus
+# playoffs), so anything beyond this is a typo -- caught here rather than becoming a
+# checkpoint months in the future (or overflowing the date math entirely).
+MAX_WEEK = 25
 EMPTY_PICKS = pd.DataFrame(columns=["Week", "Pick", "Odds", "Win", "Date"])
 
 # A checkpoint's cutoff date plus every pick that counts toward it.
@@ -112,18 +116,19 @@ def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) ->
     if missing:
         raise SystemExit(f"{path} is missing column(s): {', '.join(missing)}")
 
-    # A blank (or whitespace-only) Win means the game hasn't been graded yet.
-    df["Win"] = df["Win"].str.strip().str.upper()
-    df = df[df["Win"] != ""].copy()
+    # A blank (or whitespace-only) Win means the game hasn't been graded yet. The raw
+    # values stay in df so error messages quote what's actually in the file.
+    result = df["Win"].str.strip().str.upper()
+    df, result = df[result != ""].copy(), result[result != ""]
 
     pick = df["Pick"].str.strip()
     odds = pd.to_numeric(df["Odds"], errors="coerce")
     week = pd.to_numeric(df["Week"], errors="coerce")
     checks = [
         (pick == "", "Pick (picker name) is blank", "Pick"),
-        (~df["Win"].isin(VALID_RESULTS), "Win must be Y, N or P", "Win"),
+        (~result.isin(VALID_RESULTS), "Win must be Y, N or P", "Win"),
         (~odds.map(is_valid_american_odds), "Odds must be American odds (<= -100 or >= +100)", "Odds"),
-        (week.isna() | (week % 1 != 0) | (week < 0), "Week must be a whole number", "Week"),
+        (~week.between(1, MAX_WEEK) | (week % 1 != 0), f"Week must be a whole number from 1 to {MAX_WEEK}", "Week"),
     ]
     problems = sorted(
         (line, f"{msg} (got {df.at[line, col]!r})") for mask, msg, col in checks for line in df.index[mask]
@@ -133,6 +138,7 @@ def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) ->
         raise SystemExit(f"{path} has invalid resolved picks:\n{details}")
 
     df["Pick"] = pick
+    df["Win"] = result
     df["Odds"] = odds
     df["Week"] = week.astype(int)
     if df.empty:
@@ -207,9 +213,29 @@ def discover_seasons(data_dir: Path) -> list[str]:
     return sorted(p.name for p in data_dir.iterdir() if p.is_dir() and re.fullmatch(r"\d{4}", p.name))
 
 
-def standings(picks: pd.DataFrame) -> list[dict]:
-    pickers = sorted(set(picks["Pick"]))
-    return compute_standings(build_pick_infos(pickers, picks))
+def pick_infos(picks: pd.DataFrame) -> dict[str, PickInfo]:
+    return {info.name: info for info in build_pick_infos(sorted(set(picks["Pick"])), picks)}
+
+
+def merge_pick_infos(a: dict[str, PickInfo], b: dict[str, PickInfo]) -> dict[str, PickInfo]:
+    """Each picker's combined record and odds across both sets of picks."""
+    merged = dict(a)
+    for name, info in b.items():
+        if name in merged:
+            prev = merged[name]
+            info = PickInfo(
+                name,
+                prev.num_wins + info.num_wins,
+                prev.num_losses + info.num_losses,
+                prev.num_pushes + info.num_pushes,
+                prev.odds + info.odds,
+            )
+        merged[name] = info
+    return merged
+
+
+def standings(infos: dict[str, PickInfo]) -> list[dict]:
+    return compute_standings([infos[name] for name in sorted(infos)])
 
 
 def checkpoint(cutoff: date, rows: list[dict]) -> dict:
@@ -221,29 +247,32 @@ def build_data(data_dir: Path) -> dict:
 
     seasons_data = {}
     all_time_weeks = {sport: [] for sport in SPORTS}
-    prior_picks = {sport: EMPTY_PICKS for sport in SPORTS}  # every earlier season's picks
+    last_cutoff: dict[str, date] = {}
+    prior_infos = {sport: {} for sport in SPORTS}  # every earlier season's records, per picker
     for s, season in seasons.items():  # oldest first
         weeks = {}
         for sport in SPORTS:
             weeks[sport] = []
             for cutoff, picks in season["cuts"][sport]:
-                rows = standings(picks)
+                infos = pick_infos(picks)
+                rows = standings(infos)
                 weeks[sport].append(checkpoint(cutoff, rows))
 
                 # All-time reuses this season's own cuts (so Combined keeps its NFL/CFB week
                 # pairing) but stacks every earlier season's picks underneath -- e.g. 2026
                 # Week 1 already includes all of 2025. With no earlier seasons that's just
                 # this season's standings again.
-                prev = all_time_weeks[sport][-1]["date"] if all_time_weeks[sport] else None
-                if prev and cutoff.strftime("%Y-%m-%d") <= prev:
+                prev = last_cutoff.get(sport)
+                if prev and cutoff <= prev:
                     raise SystemExit(
                         f"All-time {sport} checkpoints go back in time: {s} has one on {cutoff} but an "
                         f"earlier one is already on {prev}. Check the week1_date values in "
-                        f"data/{s}/season.json and the previous season's."
+                        f"{data_dir / s / 'season.json'} and the previous season's."
                     )
-                all_time_rows = standings(concat([prior_picks[sport], picks])) if len(prior_picks[sport]) else rows
+                last_cutoff[sport] = cutoff
+                all_time_rows = standings(merge_pick_infos(prior_infos[sport], infos)) if prior_infos[sport] else rows
                 all_time_weeks[sport].append(checkpoint(cutoff, all_time_rows))
-            prior_picks[sport] = concat([prior_picks[sport], season["picks"][sport]])
+            prior_infos[sport] = merge_pick_infos(prior_infos[sport], pick_infos(season["picks"][sport]))
         seasons_data[s] = {"pickers": season["pickers"], "weeks": weeks}
 
     return {

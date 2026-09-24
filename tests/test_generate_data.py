@@ -53,6 +53,9 @@ def test_load_dated_picks_reports_every_bad_row_with_its_line(tmp_path):
             "1,,Colts +1,-105,P\n"  # line 7: blank Pick
             "1,Eve,Colts +1,,Y\n"  # line 8: missing Odds
             "1,Gus,Colts +1,inf,Y\n"  # line 9: infinite Odds
+            "0,Hal,Colts +1,-105,Y\n"  # line 10: weeks start at 1
+            "1000000,Ivy,Colts +1,-105,Y\n"  # line 11: typo'd Week, would overflow the date math
+            "1,Jon,Colts +1,-105, yes\n"  # line 12: bad Win, reported as written
             "1,Fay,Colts +1,50,\n"  # ungraded rows aren't validated
         ),
     )
@@ -63,10 +66,13 @@ def test_load_dated_picks_reports_every_bad_row_with_its_line(tmp_path):
     assert "line 2" not in message
     assert "line 3: Win must be Y, N or P (got 'W')" in message
     assert "line 5: Odds must be American odds" in message
-    assert "line 6: Week must be a whole number" in message
+    assert "line 6: Week must be a whole number from 1 to 25" in message
     assert "line 7: Pick (picker name) is blank" in message
     assert "line 8: Odds must be American odds" in message
     assert "line 9: Odds must be American odds" in message
+    assert "line 10: Week must be a whole number from 1 to 25 (got '0')" in message
+    assert "line 11: Week must be a whole number from 1 to 25 (got '1000000')" in message
+    assert "line 12: Win must be Y, N or P (got ' yes')" in message
     assert "Fay" not in message
 
 
@@ -158,5 +164,6 @@ def test_build_data_all_time_stacks_earlier_seasons(tmp_path):
 def test_build_data_rejects_overlapping_seasons(tmp_path):
     write_season(tmp_path, "2025", nfl="1,Ann,Lions -3,-110,Y\n2,Ann,Lions -3,-110,Y\n")
     write_season(tmp_path, "2026", nfl="1,Ann,Lions -3,-110,N\n", config=CONFIG)  # 2025's dates reused
-    with pytest.raises(SystemExit, match="go back in time"):
+    with pytest.raises(SystemExit, match="go back in time") as exc:
         generate_data.build_data(tmp_path)
+    assert str(tmp_path / "2026" / "season.json") in str(exc.value)

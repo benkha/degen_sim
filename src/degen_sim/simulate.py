@@ -73,9 +73,11 @@ def win_distribution(probs: list[float]) -> np.ndarray:
     Adds one pick at a time: convolving with [1 - p, p] turns the distribution over
     the first i picks into the one over the first i + 1 (each existing count either
     stays put on a loss or moves up one on a win). O(n^2), exact up to float rounding.
+    Picks are added in sorted order so the same set of odds always rounds the same way,
+    whatever order the rows were entered in -- identical records get bit-identical results.
     """
     pmf = np.ones(1)
-    for p in probs:
+    for p in sorted(probs):
         pmf = np.convolve(pmf, [1 - p, p])
     return pmf
 
@@ -98,9 +100,10 @@ def compute_standings(pick_infos: list[PickInfo]) -> list[dict]:
                 "wins": pick_info.num_wins,
                 "losses": pick_info.num_losses,
                 "pushes": pick_info.num_pushes,
-                # 12 places keeps genuinely different records apart (the site ranks ties by
-                # exact equality, and 6 places collapsed very strong/weak records together)
-                # while still merging float noise between identical records.
+                # The site ranks ties by exact equality; identical records already produce
+                # identical values (win_distribution sorts its inputs), so this only trims
+                # display noise. 12 places keeps genuinely different records apart (6 places
+                # collapsed very strong/weak records together).
                 "p_value": round(p_value(pick_info), 12),
             }
         )
