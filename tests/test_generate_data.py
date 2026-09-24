@@ -52,6 +52,7 @@ def test_load_dated_picks_reports_every_bad_row_with_its_line(tmp_path):
             "x,Dan,Colts +1,-105,P\n"  # line 6: bad Week
             "1,,Colts +1,-105,P\n"  # line 7: blank Pick
             "1,Eve,Colts +1,,Y\n"  # line 8: missing Odds
+            "1,Gus,Colts +1,inf,Y\n"  # line 9: infinite Odds
             "1,Fay,Colts +1,50,\n"  # ungraded rows aren't validated
         ),
     )
@@ -65,6 +66,7 @@ def test_load_dated_picks_reports_every_bad_row_with_its_line(tmp_path):
     assert "line 6: Week must be a whole number" in message
     assert "line 7: Pick (picker name) is blank" in message
     assert "line 8: Odds must be American odds" in message
+    assert "line 9: Odds must be American odds" in message
     assert "Fay" not in message
 
 

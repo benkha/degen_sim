@@ -30,7 +30,7 @@ def test_implied_probability(odds, expected):
     assert implied_probability(odds) == pytest.approx(expected)
 
 
-@pytest.mark.parametrize("odds", [0, 50, -99, 99.5, math.nan])
+@pytest.mark.parametrize("odds", [0, 50, -99, 99.5, math.nan, math.inf, -math.inf])
 def test_implied_probability_rejects_invalid_odds(odds):
     with pytest.raises(ValueError, match="Invalid American odds"):
         implied_probability(odds)

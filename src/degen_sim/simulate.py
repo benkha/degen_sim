@@ -41,10 +41,14 @@ class PickInfo:
     odds: list[float]
 
 
-def implied_probability(odds: float) -> float:
-    # American odds are always <= -100 or >= +100; anything in between (or NaN)
+def is_valid_american_odds(odds: float) -> bool:
+    # American odds are always <= -100 or >= +100; anything in between (or NaN/inf)
     # is a data-entry mistake that would otherwise yield a plausible-looking probability.
-    if math.isnan(odds) or abs(odds) < 100:
+    return math.isfinite(odds) and abs(odds) >= 100
+
+
+def implied_probability(odds: float) -> float:
+    if not is_valid_american_odds(odds):
         raise ValueError(f"Invalid American odds {odds!r}: must be <= -100 or >= +100")
     if odds > 0:
         return 100 / (odds + 100)

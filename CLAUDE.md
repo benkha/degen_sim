@@ -13,7 +13,7 @@ Dependency management uses `uv`.
 ```shell
 uv sync                 # install dependencies
 uv run ruff check .     # lint
-uv run pytest           # tests (tests/, fast -- small trial counts)
+uv run pytest           # tests (tests/, fast -- exact math, no simulation)
 ```
 
 After updating a season's CSVs (`data/<year>/parlay_tracker_nfl.csv` / `parlay_tracker_cfb.csv`) with a new week's picks, regenerate the site's data:

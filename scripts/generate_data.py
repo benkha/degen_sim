@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from degen_sim.simulate import build_pick_infos, compute_standings
+from degen_sim.simulate import build_pick_infos, compute_standings, is_valid_american_odds
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
@@ -95,7 +95,7 @@ def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) ->
     checks = [
         (pick == "", "Pick (picker name) is blank", "Pick"),
         (~df["Win"].isin(VALID_RESULTS), "Win must be Y, N or P", "Win"),
-        (odds.isna() | (odds.abs() < 100), "Odds must be American odds (<= -100 or >= +100)", "Odds"),
+        (~odds.map(is_valid_american_odds), "Odds must be American odds (<= -100 or >= +100)", "Odds"),
         (week.isna() | (week % 1 != 0) | (week < 0), "Week must be a whole number", "Week"),
     ]
     problems = sorted((i + 2, f"{msg} (got {df.at[i, col]!r})") for mask, msg, col in checks for i in df.index[mask])
