@@ -3172,13 +3172,6 @@
                 "p_value": 0.336183618362
               },
               {
-                "name": "Caleb",
-                "wins": 2,
-                "losses": 1,
-                "pushes": 0,
-                "p_value": 0.336938180703
-              },
-              {
                 "name": "Cristian",
                 "wins": 2,
                 "losses": 1,
@@ -3191,6 +3184,13 @@
                 "losses": 1,
                 "pushes": 0,
                 "p_value": 0.452947954676
+              },
+              {
+                "name": "Caleb",
+                "wins": 1,
+                "losses": 1,
+                "pushes": 0,
+                "p_value": 0.520248504372
               },
               {
                 "name": "Kyle",
@@ -3241,18 +3241,18 @@
                 "p_value": 0.128688325918
               },
               {
-                "name": "Caleb",
-                "wins": 3,
-                "losses": 2,
-                "pushes": 0,
-                "p_value": 0.366606680309
-              },
-              {
                 "name": "Daniel",
                 "wins": 2,
                 "losses": 2,
                 "pushes": 0,
                 "p_value": 0.482592129942
+              },
+              {
+                "name": "Caleb",
+                "wins": 2,
+                "losses": 2,
+                "pushes": 0,
+                "p_value": 0.518427538932
               },
               {
                 "name": "Cristian",
@@ -3549,18 +3549,18 @@
                 "p_value": 0.131171921475
               },
               {
-                "name": "Caleb",
-                "wins": 2,
-                "losses": 0,
-                "pushes": 0,
-                "p_value": 0.138364779874
-              },
-              {
                 "name": "Daniel",
                 "wins": 1,
                 "losses": 0,
                 "pushes": 0,
                 "p_value": 0.256097560976
+              },
+              {
+                "name": "Caleb",
+                "wins": 1,
+                "losses": 0,
+                "pushes": 0,
+                "p_value": 0.264150943396
               },
               {
                 "name": "Ryan",
@@ -3632,18 +3632,18 @@
                 "p_value": 0.343947244068
               },
               {
-                "name": "Caleb",
-                "wins": 2,
-                "losses": 1,
-                "pushes": 0,
-                "p_value": 0.348215831252
-              },
-              {
                 "name": "Daniel",
                 "wins": 1,
                 "losses": 1,
                 "pushes": 0,
                 "p_value": 0.520248504372
+              },
+              {
+                "name": "Caleb",
+                "wins": 1,
+                "losses": 1,
+                "pushes": 0,
+                "p_value": 0.534793145231
               },
               {
                 "name": "Michael",
@@ -4925,10 +4925,10 @@
             },
             {
               "name": "Caleb",
-              "wins": 12,
+              "wins": 11,
               "losses": 15,
               "pushes": 0,
-              "p_value": 0.861520127399
+              "p_value": 0.901955731182
             },
             {
               "name": "Cristian",
@@ -4993,18 +4993,18 @@
               "p_value": 0.702792700801
             },
             {
-              "name": "Caleb",
-              "wins": 13,
-              "losses": 16,
-              "pushes": 0,
-              "p_value": 0.853803245996
-            },
-            {
               "name": "Michael",
               "wins": 14,
               "losses": 17,
               "pushes": 0,
               "p_value": 0.854426066385
+            },
+            {
+              "name": "Caleb",
+              "wins": 12,
+              "losses": 16,
+              "pushes": 0,
+              "p_value": 0.894328126334
             },
             {
               "name": "Kunal",
@@ -7263,13 +7263,6 @@
               "p_value": 0.361047513265
             },
             {
-              "name": "Caleb",
-              "wins": 7,
-              "losses": 5,
-              "pushes": 0,
-              "p_value": 0.366384099039
-            },
-            {
               "name": "Kyle",
               "wins": 8,
               "losses": 6,
@@ -7282,6 +7275,13 @@
               "losses": 5,
               "pushes": 0,
               "p_value": 0.435857161313
+            },
+            {
+              "name": "Caleb",
+              "wins": 6,
+              "losses": 5,
+              "pushes": 0,
+              "p_value": 0.467856947918
             },
             {
               "name": "Arun",
@@ -7360,18 +7360,18 @@
               "p_value": 0.444090412808
             },
             {
-              "name": "Caleb",
-              "wins": 7,
-              "losses": 6,
-              "pushes": 0,
-              "p_value": 0.484045835906
-            },
-            {
               "name": "Daniel",
               "wins": 6,
               "losses": 6,
               "pushes": 0,
               "p_value": 0.554208350728
+            },
+            {
+              "name": "Caleb",
+              "wins": 6,
+              "losses": 6,
+              "pushes": 0,
+              "p_value": 0.587625801903
             },
             {
               "name": "Ryan",
