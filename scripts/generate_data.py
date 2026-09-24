@@ -19,7 +19,9 @@ the two week's dates is later.
 
 Resolved picks (a non-blank Win) are validated on load -- Win must be Y/N/P, Odds must be
 valid American odds, Week a whole number -- and any bad row aborts the run with its file
-and line number, rather than silently skewing the results.
+and line number, rather than silently skewing the results. Seasons must also run in
+order: a week1_date that makes one season's checkpoints overlap an earlier season's
+aborts the run too, since the All-Time timeline would otherwise go back in time.
 
 This always rebuilds data.json from scratch by reading every data/<year>/ directory --
 there is no incremental/upsert mode. Run it any time after updating a season's CSVs:
@@ -28,6 +30,7 @@ there is no incremental/upsert mode. Run it any time after updating a season's C
 """
 
 import argparse
+import csv
 import json
 import re
 from datetime import date, datetime, timedelta
@@ -73,23 +76,47 @@ def concat(frames: list[pd.DataFrame]) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else EMPTY_PICKS.copy()
 
 
+def read_csv_rows(path: Path) -> pd.DataFrame:
+    """Every non-blank record as strings, indexed by the file line it starts on.
+
+    Parsed with the csv module rather than pd.read_csv so that (a) every value stays
+    literal text -- pandas would turn a picker named "NA"/"None" or a Win of "N/A" into
+    missing values -- and (b) error line numbers stay right even when a quoted field
+    spans several lines. A record with extra non-blank fields is an error rather than
+    pandas' behavior of silently shifting its columns.
+    """
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        header = next(reader, [])
+        rows, lines, extra = [], [], []
+        start = reader.line_num + 1
+        for record in reader:
+            if any(v.strip() for v in record[len(header) :]):
+                extra.append(f"  line {start}: has {len(record)} fields, expected {len(header)}")
+            if any(v.strip() for v in record):
+                rows.append((record + [""] * len(header))[: len(header)])
+                lines.append(start)
+            start = reader.line_num + 1
+    if extra:
+        raise SystemExit(f"{path} has rows with too many fields:\n" + "\n".join(extra))
+    return pd.DataFrame(rows, columns=header, index=lines, dtype="object")
+
+
 def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) -> pd.DataFrame:
     path = season_dir / filename
     if not path.exists():
         return EMPTY_PICKS.copy()
 
-    # skip_blank_lines=False keeps the index aligned with the file (line = index + 2, after
-    # the header) so validation errors can point at the exact line to fix.
-    df = pd.read_csv(path, skip_blank_lines=False, dtype={"Pick": "string", "Win": "string"})
+    df = read_csv_rows(path)
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise SystemExit(f"{path} is missing column(s): {', '.join(missing)}")
 
     # A blank (or whitespace-only) Win means the game hasn't been graded yet.
-    df["Win"] = df["Win"].str.strip().str.upper().replace("", pd.NA)
-    df = df[df["Win"].notna()].copy()
+    df["Win"] = df["Win"].str.strip().str.upper()
+    df = df[df["Win"] != ""].copy()
 
-    pick = df["Pick"].fillna("").str.strip()
+    pick = df["Pick"].str.strip()
     odds = pd.to_numeric(df["Odds"], errors="coerce")
     week = pd.to_numeric(df["Week"], errors="coerce")
     checks = [
@@ -98,7 +125,7 @@ def load_dated_picks(season_dir: Path, filename: str, week1_date: str | None) ->
         (~odds.map(is_valid_american_odds), "Odds must be American odds (<= -100 or >= +100)", "Odds"),
         (week.isna() | (week % 1 != 0) | (week < 0), "Week must be a whole number", "Week"),
     ]
-    problems = sorted((i + 2, f"{msg} (got {df.at[i, col]!r})") for mask, msg, col in checks for i in df.index[mask])
+    problems = sorted((line, f"{msg} (got {df.at[line, col]!r})") for mask, msg, col in checks for line in df.index[mask])
     if problems:
         details = "\n".join(f"  line {line}: {msg}" for line, msg in problems)
         raise SystemExit(f"{path} has invalid resolved picks:\n{details}")
@@ -193,20 +220,29 @@ def build_data(data_dir: Path) -> dict:
 
     seasons_data = {}
     all_time_weeks = {sport: [] for sport in SPORTS}
-    prior_picks = {sport: [] for sport in SPORTS}  # every earlier season's picks
+    prior_picks = {sport: EMPTY_PICKS for sport in SPORTS}  # every earlier season's picks
     for s, season in seasons.items():  # oldest first
         weeks = {}
         for sport in SPORTS:
             weeks[sport] = []
             for cutoff, picks in season["cuts"][sport]:
-                weeks[sport].append(checkpoint(cutoff, standings(picks)))
+                rows = standings(picks)
+                weeks[sport].append(checkpoint(cutoff, rows))
 
                 # All-time reuses this season's own cuts (so Combined keeps its NFL/CFB week
                 # pairing) but stacks every earlier season's picks underneath -- e.g. 2026
-                # Week 1 already includes all of 2025.
-                all_time_picks = concat([*prior_picks[sport], picks])
-                all_time_weeks[sport].append(checkpoint(cutoff, standings(all_time_picks)))
-            prior_picks[sport].append(season["picks"][sport])
+                # Week 1 already includes all of 2025. With no earlier seasons that's just
+                # this season's standings again.
+                prev = all_time_weeks[sport][-1]["date"] if all_time_weeks[sport] else None
+                if prev and cutoff.strftime("%Y-%m-%d") <= prev:
+                    raise SystemExit(
+                        f"All-time {sport} checkpoints go back in time: {s} has one on {cutoff} but an "
+                        f"earlier one is already on {prev}. Check the week1_date values in "
+                        f"data/{s}/season.json and the previous season's."
+                    )
+                all_time_rows = standings(concat([prior_picks[sport], picks])) if len(prior_picks[sport]) else rows
+                all_time_weeks[sport].append(checkpoint(cutoff, all_time_rows))
+            prior_picks[sport] = concat([prior_picks[sport], season["picks"][sport]])
         seasons_data[s] = {"pickers": season["pickers"], "weeks": weeks}
 
     return {

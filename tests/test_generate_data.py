@@ -70,6 +70,30 @@ def test_load_dated_picks_reports_every_bad_row_with_its_line(tmp_path):
     assert "Fay" not in message
 
 
+def test_load_dated_picks_keeps_na_like_text_literal(tmp_path):
+    season_dir = write_season(tmp_path, "2025", nfl="1,NA,Lions -3,-110,Y\n1,None,Jets +3,120,N\n")
+    assert load_nfl(season_dir)["Pick"].tolist() == ["NA", "None"]
+
+    season_dir = write_season(tmp_path, "2026", nfl="1,Ann,Lions -3,-110,N/A\n")
+    with pytest.raises(SystemExit, match="line 2: Win must be Y, N or P \\(got 'N/A'\\)"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_line_numbers_survive_multiline_fields(tmp_path):
+    season_dir = write_season(tmp_path, "2025", nfl='1,Ann,"Lions\n-3",-110,Y\n1,Bob,Jets +3,120,W\n')
+    with pytest.raises(SystemExit, match="line 4: Win must be"):
+        load_nfl(season_dir)
+
+
+def test_load_dated_picks_rejects_rows_with_extra_fields(tmp_path):
+    season_dir = write_season(tmp_path, "2025", nfl="1,Ann,Lions -3,-110,Y,extra\n1,Bob,Jets +3,120,N,\n")
+    with pytest.raises(SystemExit) as exc:
+        load_nfl(season_dir)
+    message = str(exc.value)
+    assert "line 2: has 6 fields, expected 5" in message
+    assert "line 3" not in message  # a trailing empty field is harmless
+
+
 def test_load_dated_picks_requires_week1_date_once_picks_are_resolved(tmp_path):
     season_dir = write_season(tmp_path, "2025", nfl="1,Ann,Lions -3,-110,Y\n")
     with pytest.raises(SystemExit, match="no week1_date"):
@@ -129,3 +153,10 @@ def test_build_data_all_time_stacks_earlier_seasons(tmp_path):
     assert records(season_nfl[0]) == {"Ann": (0, 1), "Bob": (1, 0)}
     # 2026 Week 1 all-time already includes Ann's 2-0 from 2025.
     assert records(all_time_nfl[2]) == {"Ann": (2, 1), "Bob": (1, 0)}
+
+
+def test_build_data_rejects_overlapping_seasons(tmp_path):
+    write_season(tmp_path, "2025", nfl="1,Ann,Lions -3,-110,Y\n2,Ann,Lions -3,-110,Y\n")
+    write_season(tmp_path, "2026", nfl="1,Ann,Lions -3,-110,N\n", config=CONFIG)  # 2025's dates reused
+    with pytest.raises(SystemExit, match="go back in time"):
+        generate_data.build_data(tmp_path)

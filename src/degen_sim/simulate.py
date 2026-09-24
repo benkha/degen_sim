@@ -98,7 +98,10 @@ def compute_standings(pick_infos: list[PickInfo]) -> list[dict]:
                 "wins": pick_info.num_wins,
                 "losses": pick_info.num_losses,
                 "pushes": pick_info.num_pushes,
-                "p_value": round(p_value(pick_info), 6),
+                # 12 places keeps genuinely different records apart (the site ranks ties by
+                # exact equality, and 6 places collapsed very strong/weak records together)
+                # while still merging float noise between identical records.
+                "p_value": round(p_value(pick_info), 12),
             }
         )
     rows.sort(key=lambda r: r["p_value"])

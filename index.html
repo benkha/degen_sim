@@ -580,10 +580,10 @@
   <div class="methodology" id="methodology">
     <h3>How This Works</h3>
     <p>For each person, we take their realized record (W-L-P) and the American odds of every pick, and convert those odds into implied win probabilities (assuming no house edge).</p>
-    <p>We then compute the exact probability distribution of possible win counts (W) given those implied probabilities — every combination of wins and losses across their picks, weighted by how likely it was. From that distribution we compute a mid-p value: <code>P(W &gt; w) + ½·P(W = w)</code>, where <code>w</code> is the person's actual win count — the chance that pure luck would have produced a better record than theirs, with an exact tie counted as half. Counting ties as half means a picker with no real edge averages exactly 0.5, so a record in line with the odds lands near 0.5 rather than reading as slightly cold.</p>
+    <p>We then compute the exact probability distribution of possible win counts (W) given those implied probabilities — every combination of wins and losses across their picks, weighted by how likely it was. From that distribution we compute a mid-p value: <code>P(W &gt; w) + ½·P(W = w)</code>, where <code>w</code> is the person's actual win count — the chance that pure luck would have produced a better record than theirs, with an exact tie counted as half. Counting ties as half means that if the implied odds were exactly right, a picker with no real edge would average exactly 0.5, so a record in line with the odds lands near 0.5 rather than reading as slightly cold. (In practice the odds include the sportsbook's cut, which nudges everyone a bit above 0.5 — see Limitations below.)</p>
     <p>A low p-value means a record this good would be rare by chance alone — a sign of skill. A high p-value means the implied odds predicted a much better record than they actually posted.</p>
     <p>Each entry in the Weekly Snapshots and charts above is <strong>cumulative</strong>, not just that week in isolation: a given week's p-value is computed from every pick made from the start of the season (or, on the All-Time tab, from the start of tracking) through that week, not only the picks made during that specific week.</p>
-    <p style="margin-top:1.1rem;padding-top:0.9rem;border-top:1px solid var(--border);"><strong style="color:var(--gold);">Limitations:</strong> Posted American odds include the sportsbook's vig, which isn't removed here — so implied probabilities run slightly higher than each bet's true fair probability. Even a bettor with zero real edge should expect a p-value somewhat above 0.5 on average; treat p-values as <em>relative</em> rankings within the group for a given week, not as absolute proof of being below average. Pushes count as non-wins (grouped with losses) rather than being dropped, so the number of picks in the calculation always matches the number of real picks.</p>
+    <p style="margin-top:1.1rem;padding-top:0.9rem;border-top:1px solid var(--border);"><strong style="color:var(--gold);">Limitations:</strong> Posted American odds include the sportsbook's vig, which isn't removed here — so implied probabilities run slightly higher than each bet's true fair probability. So even a bettor with zero real edge should expect a p-value somewhat above 0.5 on average, not the exact 0.5 described above; treat p-values as <em>relative</em> rankings within the group for a given week, not as absolute proof of being below average. Pushes count as non-wins (grouped with losses) rather than being dropped, so the number of picks in the calculation always matches the number of real picks.</p>
   </div>
 
 </main>
@@ -758,12 +758,22 @@
   }
 
   function ranksForPickers(checkpoints, pickers) {
-    // returns { name: [rank per checkpoint] }, ranks 1 = best (lowest p_value)
+    // returns { name: [rank per checkpoint] }, ranks 1 = best (lowest p_value).
+    // Tied pickers share a rank, so they're fanned out just below it (by at most
+    // 0.8, never reaching the next rank) rather than drawn exactly on top of each other.
     const ranks = {};
     pickers.forEach(p => ranks[p] = []);
     checkpoints.forEach(cp => {
       const seen = new Set();
-      rankRows(cp.standings).forEach(r => { ranks[r.name].push(r.rank); seen.add(r.name); });
+      const ranked = rankRows(cp.standings);
+      const groupSize = {};
+      ranked.forEach(r => { groupSize[r.rank] = (groupSize[r.rank] || 0) + 1; });
+      ranked.forEach((r, i) => {
+        const k = groupSize[r.rank];
+        const offset = k > 1 ? (i + 1 - r.rank) * Math.min(0.25, 0.8 / (k - 1)) : 0;
+        ranks[r.name].push(r.rank + offset);
+        seen.add(r.name);
+      });
       pickers.forEach(p => { if (!seen.has(p)) ranks[p].push(null); });
     });
     return ranks;
