@@ -25,18 +25,24 @@ loss and a push. That's intentional, not a bug: a push is itself a real
 "not a win" observation, so dropping it from the distribution would discard
 real information rather than fix anything.
 
-Everything is computed in exact rational arithmetic (fractions.Fraction), not floats.
-That's what makes ties reliable: two pickers are tied exactly when their p-values are
-mathematically equal, and are otherwise ranked by their exact values -- no float
-rounding can merge two different records or split two equal ones. compute_standings
+Ties: compute_standings treats p-values within TIE_TOLERANCE of each other as tied and
 assigns the ranks here, so the website only displays them and never compares floats.
 """
 
 import math
 from dataclasses import dataclass
-from fractions import Fraction
 
+import numpy as np
 import pandas as pd
+
+# p-values closer than this are a tie. Float rounding in win_distribution leaves the same
+# record (e.g. the same odds entered in a different order) ~1e-16 apart, and different
+# records that are mathematically equal (1-1 and 2-2 on coin flips are both exactly 0.5)
+# land within that too, so both tie. Genuinely different records are far further apart --
+# except at the extremes: two records whose p-values are both within ~1e-12 of 0 or 1
+# (e.g. two pickers winless over 40+ picks at different odds) tie too. A known, accepted
+# limitation -- no realistic record gets there.
+TIE_TOLERANCE = 1e-12
 
 
 @dataclass
@@ -45,7 +51,7 @@ class PickInfo:
     num_wins: int
     num_losses: int
     num_pushes: int
-    odds: list[Fraction]  # implied win probability of each pick
+    odds: list[float]  # implied win probability of each pick
 
 
 def is_valid_american_odds(odds: float) -> bool:
@@ -54,14 +60,12 @@ def is_valid_american_odds(odds: float) -> bool:
     return math.isfinite(odds) and abs(odds) >= 100
 
 
-def implied_probability(odds: float) -> Fraction:
-    """Exact implied win probability, e.g. -110 -> 110/210."""
+def implied_probability(odds: float) -> float:
     if not is_valid_american_odds(odds):
         raise ValueError(f"Invalid American odds {odds!r}: must be <= -100 or >= +100")
-    odds = Fraction(odds)
     if odds > 0:
         return 100 / (odds + 100)
-    return -odds / (-odds + 100)
+    return abs(odds) / (abs(odds) + 100)
 
 
 def build_pick_infos(picks: pd.DataFrame) -> list[PickInfo]:
@@ -83,57 +87,55 @@ def build_pick_infos(picks: pd.DataFrame) -> list[PickInfo]:
     return [infos[name] for name in sorted(infos)]
 
 
-def win_weights(probs: list[Fraction]) -> tuple[list[int], int]:
-    """Exact P(W = k) for k = 0..len(probs) as integer numerators over one shared denominator.
+def win_distribution(probs: list[float]) -> np.ndarray:
+    """Exact P(W = k) for k = 0..len(probs), W = total wins across independent picks.
 
-    Adds one pick at a time: with p = a/b, each existing count either stays put on a
-    loss (weight b - a) or moves up one on a win (weight a), and the denominator picks
-    up a factor of b. Plain integers rather than a list of Fractions, which would
-    reduce every entry by a gcd at every step and run ~25x slower. O(n^2).
+    Adds one pick at a time: convolving with [1 - p, p] turns the distribution over
+    the first i picks into the one over the first i + 1 (each existing count either
+    stays put on a loss or moves up one on a win). O(n^2), exact up to float rounding.
     """
-    weights, denominator = [1], 1
+    pmf = np.ones(1)
     for p in probs:
-        a, b = p.numerator, p.denominator
-        weights = [stay * (b - a) + up * a for stay, up in zip(weights + [0], [0] + weights)]
-        denominator *= b
-    return weights, denominator
+        pmf = np.convolve(pmf, [1 - p, p])
+    return pmf
 
 
-def win_distribution(probs: list[Fraction]) -> list[Fraction]:
-    """Exact P(W = k) for k = 0..len(probs), W = total wins across independent picks."""
-    weights, denominator = win_weights(probs)
-    return [Fraction(w, denominator) for w in weights]
-
-
-def p_value(pick_info: PickInfo) -> Fraction:
-    """Exact mid-p value P(W > num_wins) + 1/2 * P(W = num_wins) under the picks' implied probabilities."""
-    weights, denominator = win_weights(pick_info.odds)
+def p_value(pick_info: PickInfo) -> float:
+    """Mid-p value P(W > num_wins) + 1/2 * P(W = num_wins) under the picks' implied probabilities."""
+    pmf = win_distribution(pick_info.odds)
     w = pick_info.num_wins
-    return Fraction(2 * sum(weights[w + 1 :]) + weights[w], 2 * denominator)
+    return float(pmf[w + 1 :].sum() + 0.5 * pmf[w])
 
 
 def compute_standings(pick_infos: list[PickInfo]) -> list[dict]:
     """One row per picker with picks, best (lowest p-value) first, each with a "competition"
-    rank (1, 2, 2, 4) shared by pickers whose exact p-values are equal.
+    rank (1, 2, 2, 4) shared by tied pickers.
 
-    Ties are decided here on the exact values, never on the floats written out for
-    display: equal records always tie, and different records never do, however close.
+    A row ties with the one above it when their p-values are within TIE_TOLERANCE, so a
+    tie group is a run of neighbors each within tolerance of the next. Ties are listed by
+    name: tied rows are sorted by name after grouping, not by their (noise-level) p-value
+    differences.
     """
-    scored = sorted(
-        ((p_value(info), info) for info in pick_infos if info.odds),
-        key=lambda scored_info: (scored_info[0], scored_info[1].name),
-    )
-    rows = []
+    scored = sorted(((p_value(info), info) for info in pick_infos if info.odds), key=lambda scored_info: scored_info[0])
+    groups: list[list[tuple[float, PickInfo]]] = []
     for i, (p, info) in enumerate(scored):
-        tied_with_previous = i > 0 and p == scored[i - 1][0]
-        rows.append(
-            {
-                "name": info.name,
-                "wins": info.num_wins,
-                "losses": info.num_losses,
-                "pushes": info.num_pushes,
-                "p_value": float(p),
-                "rank": rows[-1]["rank"] if tied_with_previous else i + 1,
-            }
-        )
+        if i > 0 and p - scored[i - 1][0] < TIE_TOLERANCE:
+            groups[-1].append((p, info))
+        else:
+            groups.append([(p, info)])
+
+    rows = []
+    for group in groups:
+        rank = len(rows) + 1
+        for p, info in sorted(group, key=lambda scored_info: scored_info[1].name):
+            rows.append(
+                {
+                    "name": info.name,
+                    "wins": info.num_wins,
+                    "losses": info.num_losses,
+                    "pushes": info.num_pushes,
+                    "p_value": p,
+                    "rank": rank,
+                }
+            )
     return rows

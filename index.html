@@ -677,11 +677,11 @@
   }
 
   // Standings arrive from generate_data.py already sorted best-first, each with a
-  // shared "competition" rank (1, 2, 2, 4). Ties are decided there on each picker's
-  // exact (rational) p-value -- e.g. several who each went 1-0 at the same odds in
-  // Week 1 -- so never re-rank or compare p_value floats here: two different records
-  // can round to the same float. This only adds how many rows share each rank
-  // (`groupSize`) and `tied` (groupSize > 1).
+  // shared "competition" rank (1, 2, 2, 4). Ties -- e.g. several who each went 1-0
+  // at the same odds in Week 1 -- are decided there (p-values within a tolerance of
+  // each other), so never re-rank or compare p_value floats here: the same record can
+  // come out a hair different depending on pick order. This only adds how many rows
+  // share each rank (`groupSize`) and `tied` (groupSize > 1).
   function rankRows(standings) {
     const groupSize = {};
     standings.forEach(r => { groupSize[r.rank] = (groupSize[r.rank] || 0) + 1; });
