@@ -4257,82 +4257,168 @@
             "standings": [
               {
                 "name": "David",
-                "wins": 11,
+                "wins": 12,
                 "losses": 6,
                 "pushes": 0,
-                "p_value": 0.1732217463162947,
+                "p_value": 0.12685539739836033,
                 "rank": 1
               },
               {
                 "name": "Michael",
                 "wins": 10,
-                "losses": 6,
+                "losses": 7,
                 "pushes": 0,
-                "p_value": 0.2335144289442977,
+                "p_value": 0.3248841070203466,
                 "rank": 2
+              },
+              {
+                "name": "Arun",
+                "wins": 10,
+                "losses": 11,
+                "pushes": 0,
+                "p_value": 0.6113522422869994,
+                "rank": 3
+              },
+              {
+                "name": "Caleb",
+                "wins": 8,
+                "losses": 9,
+                "pushes": 0,
+                "p_value": 0.6744891042588481,
+                "rank": 4
               },
               {
                 "name": "Cristian",
                 "wins": 9,
-                "losses": 7,
+                "losses": 8,
                 "pushes": 0,
-                "p_value": 0.60243604217515,
-                "rank": 3
+                "p_value": 0.695933107502676,
+                "rank": 5
               },
               {
-                "name": "Arun",
-                "wins": 9,
-                "losses": 11,
-                "pushes": 0,
-                "p_value": 0.6907183371241135,
-                "rank": 4
+                "name": "Ben",
+                "wins": 8,
+                "losses": 9,
+                "pushes": 1,
+                "p_value": 0.7423668601930744,
+                "rank": 6
               },
               {
-                "name": "Caleb",
+                "name": "Kunal",
                 "wins": 7,
                 "losses": 9,
                 "pushes": 0,
-                "p_value": 0.7286899391428096,
-                "rank": 5
+                "p_value": 0.7639453322657834,
+                "rank": 7
               },
               {
                 "name": "Daniel",
                 "wins": 5,
-                "losses": 9,
+                "losses": 10,
                 "pushes": 0,
-                "p_value": 0.7903008120134942,
-                "rank": 6
-              },
-              {
-                "name": "Ben",
-                "wins": 7,
-                "losses": 9,
-                "pushes": 1,
-                "p_value": 0.8157845197912889,
-                "rank": 7
-              },
-              {
-                "name": "Kunal",
-                "wins": 6,
-                "losses": 9,
-                "pushes": 0,
-                "p_value": 0.8349120607144631,
+                "p_value": 0.845118322037869,
                 "rank": 8
               },
               {
                 "name": "Ryan",
                 "wins": 7,
-                "losses": 9,
+                "losses": 10,
                 "pushes": 1,
-                "p_value": 0.8624978973130217,
+                "p_value": 0.9039591142160661,
                 "rank": 9
               },
               {
                 "name": "Kyle",
-                "wins": 5,
+                "wins": 6,
                 "losses": 12,
                 "pushes": 0,
-                "p_value": 0.975415932087694,
+                "p_value": 0.9552592390438368,
+                "rank": 10
+              }
+            ]
+          },
+          {
+            "date": "2026-11-15",
+            "label": "Nov 15, 2026",
+            "standings": [
+              {
+                "name": "David",
+                "wins": 13,
+                "losses": 6,
+                "pushes": 0,
+                "p_value": 0.09146416508172667,
+                "rank": 1
+              },
+              {
+                "name": "Michael",
+                "wins": 11,
+                "losses": 7,
+                "pushes": 0,
+                "p_value": 0.25011045084008665,
+                "rank": 2
+              },
+              {
+                "name": "Arun",
+                "wins": 11,
+                "losses": 11,
+                "pushes": 0,
+                "p_value": 0.5154558879054667,
+                "rank": 3
+              },
+              {
+                "name": "Caleb",
+                "wins": 9,
+                "losses": 9,
+                "pushes": 0,
+                "p_value": 0.585605058314862,
+                "rank": 4
+              },
+              {
+                "name": "Cristian",
+                "wins": 10,
+                "losses": 8,
+                "pushes": 0,
+                "p_value": 0.606830601222711,
+                "rank": 5
+              },
+              {
+                "name": "Ben",
+                "wins": 9,
+                "losses": 9,
+                "pushes": 1,
+                "p_value": 0.6615612720443542,
+                "rank": 6
+              },
+              {
+                "name": "Kunal",
+                "wins": 8,
+                "losses": 9,
+                "pushes": 0,
+                "p_value": 0.6806019833885499,
+                "rank": 7
+              },
+              {
+                "name": "Daniel",
+                "wins": 6,
+                "losses": 10,
+                "pushes": 0,
+                "p_value": 0.7696042613762173,
+                "rank": 8
+              },
+              {
+                "name": "Ryan",
+                "wins": 8,
+                "losses": 10,
+                "pushes": 1,
+                "p_value": 0.8652597155369453,
+                "rank": 9
+              },
+              {
+                "name": "Kyle",
+                "wins": 7,
+                "losses": 12,
+                "pushes": 0,
+                "p_value": 0.9224198060916458,
                 "rank": 10
               }
             ]
@@ -4937,6 +5023,178 @@
                 "losses": 5,
                 "pushes": 1,
                 "p_value": 0.9828809316064886,
+                "rank": 10
+              }
+            ]
+          },
+          {
+            "date": "2026-11-08",
+            "label": "Nov 8, 2026",
+            "standings": [
+              {
+                "name": "David",
+                "wins": 7,
+                "losses": 1,
+                "pushes": 0,
+                "p_value": 0.0333592856150914,
+                "rank": 1
+              },
+              {
+                "name": "Kunal",
+                "wins": 6,
+                "losses": 2,
+                "pushes": 0,
+                "p_value": 0.12010397981556889,
+                "rank": 2
+              },
+              {
+                "name": "Arun",
+                "wins": 5,
+                "losses": 3,
+                "pushes": 0,
+                "p_value": 0.2927319687168093,
+                "rank": 3
+              },
+              {
+                "name": "Ben",
+                "wins": 4,
+                "losses": 4,
+                "pushes": 0,
+                "p_value": 0.5441499254799629,
+                "rank": 4
+              },
+              {
+                "name": "Caleb",
+                "wins": 4,
+                "losses": 4,
+                "pushes": 0,
+                "p_value": 0.5577820759016292,
+                "rank": 5
+              },
+              {
+                "name": "Daniel",
+                "wins": 3,
+                "losses": 5,
+                "pushes": 0,
+                "p_value": 0.6974992184363846,
+                "rank": 6
+              },
+              {
+                "name": "Cristian",
+                "wins": 4,
+                "losses": 4,
+                "pushes": 0,
+                "p_value": 0.7092039968337978,
+                "rank": 7
+              },
+              {
+                "name": "Michael",
+                "wins": 3,
+                "losses": 5,
+                "pushes": 0,
+                "p_value": 0.8294129268399082,
+                "rank": 8
+              },
+              {
+                "name": "Kyle",
+                "wins": 2,
+                "losses": 6,
+                "pushes": 0,
+                "p_value": 0.9486621188656877,
+                "rank": 9
+              },
+              {
+                "name": "Ryan",
+                "wins": 1,
+                "losses": 6,
+                "pushes": 1,
+                "p_value": 0.9910416659914052,
+                "rank": 10
+              }
+            ]
+          },
+          {
+            "date": "2026-11-15",
+            "label": "Nov 15, 2026",
+            "standings": [
+              {
+                "name": "David",
+                "wins": 8,
+                "losses": 1,
+                "pushes": 0,
+                "p_value": 0.019221925921786426,
+                "rank": 1
+              },
+              {
+                "name": "Kunal",
+                "wins": 7,
+                "losses": 2,
+                "pushes": 0,
+                "p_value": 0.07546590280290333,
+                "rank": 2
+              },
+              {
+                "name": "Arun",
+                "wins": 6,
+                "losses": 3,
+                "pushes": 0,
+                "p_value": 0.18972140206107835,
+                "rank": 3
+              },
+              {
+                "name": "Ben",
+                "wins": 5,
+                "losses": 4,
+                "pushes": 0,
+                "p_value": 0.4203704482828492,
+                "rank": 4
+              },
+              {
+                "name": "Caleb",
+                "wins": 5,
+                "losses": 4,
+                "pushes": 0,
+                "p_value": 0.4320094137988605,
+                "rank": 5
+              },
+              {
+                "name": "Daniel",
+                "wins": 4,
+                "losses": 5,
+                "pushes": 0,
+                "p_value": 0.5709874882623838,
+                "rank": 6
+              },
+              {
+                "name": "Cristian",
+                "wins": 5,
+                "losses": 4,
+                "pushes": 0,
+                "p_value": 0.582357703499638,
+                "rank": 7
+              },
+              {
+                "name": "Michael",
+                "wins": 4,
+                "losses": 5,
+                "pushes": 0,
+                "p_value": 0.720567624222954,
+                "rank": 8
+              },
+              {
+                "name": "Kyle",
+                "wins": 3,
+                "losses": 6,
+                "pushes": 0,
+                "p_value": 0.8873269126745175,
+                "rank": 9
+              },
+              {
+                "name": "Ryan",
+                "wins": 2,
+                "losses": 6,
+                "pushes": 1,
+                "p_value": 0.9758391464686543,
                 "rank": 10
               }
             ]
@@ -7879,10 +8137,10 @@
           "standings": [
             {
               "name": "David",
-              "wins": 11,
+              "wins": 12,
               "losses": 6,
               "pushes": 0,
-              "p_value": 0.1732217463162947,
+              "p_value": 0.12685539739836033,
               "rank": 1
             },
             {
@@ -7894,75 +8152,169 @@
               "rank": 2
             },
             {
-              "name": "Michael",
-              "wins": 23,
-              "losses": 19,
+              "name": "Arun",
+              "wins": 25,
+              "losses": 27,
               "pushes": 0,
-              "p_value": 0.4928516588508734,
+              "p_value": 0.5501856330060301,
               "rank": 3
             },
             {
-              "name": "Arun",
-              "wins": 24,
-              "losses": 27,
+              "name": "Michael",
+              "wins": 23,
+              "losses": 20,
               "pushes": 0,
-              "p_value": 0.6029782428457566,
+              "p_value": 0.5572487497250544,
               "rank": 4
             },
             {
               "name": "Daniel",
               "wins": 18,
-              "losses": 20,
+              "losses": 21,
               "pushes": 0,
-              "p_value": 0.7030303973332155,
+              "p_value": 0.7493385581877129,
               "rank": 5
+            },
+            {
+              "name": "Ben",
+              "wins": 22,
+              "losses": 22,
+              "pushes": 1,
+              "p_value": 0.7493874832247505,
+              "rank": 6
             },
             {
               "name": "Ryan",
               "wins": 20,
-              "losses": 19,
+              "losses": 20,
               "pushes": 1,
-              "p_value": 0.706232363041272,
-              "rank": 6
-            },
-            {
-              "name": "Ben",
-              "wins": 21,
-              "losses": 22,
-              "pushes": 1,
-              "p_value": 0.7957840113669157,
+              "p_value": 0.7573671875535868,
               "rank": 7
             },
             {
               "name": "Kyle",
-              "wins": 19,
+              "wins": 20,
               "losses": 23,
               "pushes": 1,
-              "p_value": 0.8980480050569132,
+              "p_value": 0.8684396589023748,
               "rank": 8
             },
             {
               "name": "Kunal",
-              "wins": 18,
+              "wins": 19,
               "losses": 23,
               "pushes": 0,
-              "p_value": 0.9060372494110892,
+              "p_value": 0.8767399461751556,
               "rank": 9
             },
             {
               "name": "Caleb",
-              "wins": 17,
+              "wins": 18,
               "losses": 23,
               "pushes": 0,
-              "p_value": 0.923312555388785,
+              "p_value": 0.9062705735814465,
               "rank": 10
             },
             {
               "name": "Cristian",
               "wins": 20,
+              "losses": 22,
+              "pushes": 0,
+              "p_value": 0.9499923508046609,
+              "rank": 11
+            }
+          ]
+        },
+        {
+          "date": "2026-11-15",
+          "label": "Nov 15, 2026",
+          "standings": [
+            {
+              "name": "David",
+              "wins": 13,
+              "losses": 6,
+              "pushes": 0,
+              "p_value": 0.09146416508172667,
+              "rank": 1
+            },
+            {
+              "name": "Ananya",
+              "wins": 15,
+              "losses": 9,
+              "pushes": 1,
+              "p_value": 0.45878778939016385,
+              "rank": 2
+            },
+            {
+              "name": "Arun",
+              "wins": 26,
+              "losses": 27,
+              "pushes": 0,
+              "p_value": 0.4873361507728203,
+              "rank": 3
+            },
+            {
+              "name": "Michael",
+              "wins": 24,
+              "losses": 20,
+              "pushes": 0,
+              "p_value": 0.49638569295797197,
+              "rank": 4
+            },
+            {
+              "name": "Daniel",
+              "wins": 19,
               "losses": 21,
               "pushes": 0,
-              "p_value": 0.9324225993300134,
+              "p_value": 0.6940396106568403,
+              "rank": 5
+            },
+            {
+              "name": "Ben",
+              "wins": 23,
+              "losses": 22,
+              "pushes": 1,
+              "p_value": 0.6993665892862382,
+              "rank": 6
+            },
+            {
+              "name": "Ryan",
+              "wins": 21,
+              "losses": 20,
+              "pushes": 1,
+              "p_value": 0.7177458062922031,
+              "rank": 7
+            },
+            {
+              "name": "Kyle",
+              "wins": 21,
+              "losses": 23,
+              "pushes": 1,
+              "p_value": 0.8299587504178472,
+              "rank": 8
+            },
+            {
+              "name": "Kunal",
+              "wins": 20,
+              "losses": 23,
+              "pushes": 0,
+              "p_value": 0.840855461752035,
+              "rank": 9
+            },
+            {
+              "name": "Caleb",
+              "wins": 19,
+              "losses": 23,
+              "pushes": 0,
+              "p_value": 0.8754073448340244,
+              "rank": 10
+            },
+            {
+              "name": "Cristian",
+              "wins": 21,
+              "losses": 22,
+              "pushes": 0,
+              "p_value": 0.9300497441386989,
               "rank": 11
             }
           ]
@@ -9827,6 +10179,194 @@
               "losses": 13,
               "pushes": 1,
               "p_value": 0.9767472266190236,
+              "rank": 11
+            }
+          ]
+        },
+        {
+          "date": "2026-11-08",
+          "label": "Nov 8, 2026",
+          "standings": [
+            {
+              "name": "David",
+              "wins": 7,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 0.0333592856150914,
+              "rank": 1
+            },
+            {
+              "name": "Ananya",
+              "wins": 10,
+              "losses": 4,
+              "pushes": 0,
+              "p_value": 0.153255756198526,
+              "rank": 2
+            },
+            {
+              "name": "Ben",
+              "wins": 14,
+              "losses": 8,
+              "pushes": 0,
+              "p_value": 0.17822372536348274,
+              "rank": 3
+            },
+            {
+              "name": "Arun",
+              "wins": 13,
+              "losses": 9,
+              "pushes": 0,
+              "p_value": 0.19923221296834068,
+              "rank": 4
+            },
+            {
+              "name": "Kunal",
+              "wins": 13,
+              "losses": 9,
+              "pushes": 0,
+              "p_value": 0.3443724521621153,
+              "rank": 5
+            },
+            {
+              "name": "Daniel",
+              "wins": 11,
+              "losses": 11,
+              "pushes": 0,
+              "p_value": 0.6140492890318553,
+              "rank": 6
+            },
+            {
+              "name": "Ryan",
+              "wins": 9,
+              "losses": 11,
+              "pushes": 1,
+              "p_value": 0.8672138570646463,
+              "rank": 7
+            },
+            {
+              "name": "Caleb",
+              "wins": 9,
+              "losses": 13,
+              "pushes": 0,
+              "p_value": 0.9105520919313455,
+              "rank": 8
+            },
+            {
+              "name": "Cristian",
+              "wins": 10,
+              "losses": 12,
+              "pushes": 0,
+              "p_value": 0.9177114480638521,
+              "rank": 9
+            },
+            {
+              "name": "Michael",
+              "wins": 9,
+              "losses": 13,
+              "pushes": 0,
+              "p_value": 0.9354169266393927,
+              "rank": 10
+            },
+            {
+              "name": "Kyle",
+              "wins": 8,
+              "losses": 13,
+              "pushes": 1,
+              "p_value": 0.9598893821018633,
+              "rank": 11
+            }
+          ]
+        },
+        {
+          "date": "2026-11-15",
+          "label": "Nov 15, 2026",
+          "standings": [
+            {
+              "name": "David",
+              "wins": 8,
+              "losses": 1,
+              "pushes": 0,
+              "p_value": 0.019221925921786426,
+              "rank": 1
+            },
+            {
+              "name": "Ben",
+              "wins": 15,
+              "losses": 8,
+              "pushes": 0,
+              "p_value": 0.13438827813209378,
+              "rank": 2
+            },
+            {
+              "name": "Arun",
+              "wins": 14,
+              "losses": 9,
+              "pushes": 0,
+              "p_value": 0.14432539357552157,
+              "rank": 3
+            },
+            {
+              "name": "Ananya",
+              "wins": 10,
+              "losses": 4,
+              "pushes": 0,
+              "p_value": 0.153255756198526,
+              "rank": 4
+            },
+            {
+              "name": "Kunal",
+              "wins": 14,
+              "losses": 9,
+              "pushes": 0,
+              "p_value": 0.2763315175019871,
+              "rank": 5
+            },
+            {
+              "name": "Daniel",
+              "wins": 12,
+              "losses": 11,
+              "pushes": 0,
+              "p_value": 0.5313975857864709,
+              "rank": 6
+            },
+            {
+              "name": "Ryan",
+              "wins": 10,
+              "losses": 11,
+              "pushes": 1,
+              "p_value": 0.8248742253245324,
+              "rank": 7
+            },
+            {
+              "name": "Caleb",
+              "wins": 10,
+              "losses": 13,
+              "pushes": 0,
+              "p_value": 0.86704889494033,
+              "rank": 8
+            },
+            {
+              "name": "Cristian",
+              "wins": 11,
+              "losses": 12,
+              "pushes": 0,
+              "p_value": 0.876523707633857,
+              "rank": 9
+            },
+            {
+              "name": "Michael",
+              "wins": 10,
+              "losses": 13,
+              "pushes": 0,
+              "p_value": 0.8990622504416135,
+              "rank": 10
+            },
+            {
+              "name": "Kyle",
+              "wins": 9,
+              "losses": 13,
+              "pushes": 1,
+              "p_value": 0.93286250891991,
               "rank": 11
             }
           ]
